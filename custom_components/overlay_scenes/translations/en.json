@@ -15,7 +15,7 @@
             "attribute": "Attribute", "value": "Value or template", "op": "Operation",
             "priority": "Priority", "opacity": "Opacity", "lifetime_mode": "Lifetime",
             "include_in_set_actions": "Include in set actions",
-            "duration_seconds": "Duration in seconds", "condition_entity": "Condition entity"
+            "duration_seconds": "Duration", "condition_entity": "Condition entity"
           }
         },
         "reconfigure": {
@@ -25,7 +25,7 @@
             "attribute": "Attribute", "value": "Value or template", "op": "Operation",
             "priority": "Priority", "opacity": "Opacity", "lifetime_mode": "Lifetime",
             "include_in_set_actions": "Include in set actions",
-            "duration_seconds": "Duration in seconds", "condition_entity": "Condition entity"
+            "duration_seconds": "Duration", "condition_entity": "Condition entity"
           }
         }
       },

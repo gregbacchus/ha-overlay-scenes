@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
 import json
 import re
 from typing import Any
@@ -152,7 +151,7 @@ def _layer_from_config(overlay_set_id: str, data: dict[str, Any]) -> Layer:
         opacity=float(data.get("opacity", 1.0)),
         lifetime=LifetimeSpec(
             mode=data["lifetime_mode"],
-            duration=timedelta(seconds=float(duration)) if duration else None,
+            duration=cv.time_period(duration) if duration else None,
             condition_entity=data.get("condition_entity"),
         ),
         include_in_set_actions=data.get("include_in_set_actions", True),

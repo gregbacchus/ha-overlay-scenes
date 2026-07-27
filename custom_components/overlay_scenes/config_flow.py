@@ -14,6 +14,7 @@ from homeassistant.helpers.selector import (
     EntitySelector,
     EntitySelectorConfig,
     BooleanSelector,
+    DurationSelector,
     NumberSelector,
     NumberSelectorConfig,
     SelectSelector,
@@ -54,9 +55,7 @@ LAYER_SCHEMA = vol.Schema(
         vol.Required("lifetime_mode", default="until_trigger"): SelectSelector(
             SelectSelectorConfig(options=["duration", "until_trigger", "while_condition"])
         ),
-        vol.Optional("duration_seconds"): NumberSelector(
-            NumberSelectorConfig(min=0.1, max=31536000, step=1)
-        ),
+        vol.Optional("duration_seconds"): DurationSelector(),
         vol.Optional("condition_entity"): EntitySelector(),
     }
 )

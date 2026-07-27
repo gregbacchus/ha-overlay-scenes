@@ -25,6 +25,7 @@ resolved values and active layer stack.
 ## Contents
 
 - [What this integration does](#what-this-integration-does)
+- [Requirements](#requirements)
 - [Installation](#installation)
 - [Quick start](#quick-start)
 - [Core concepts](#core-concepts)
@@ -42,6 +43,7 @@ resolved values and active layer stack.
 - [Persistence and restart behavior](#persistence-and-restart-behavior)
 - [Troubleshooting](#troubleshooting)
 - [Current limitations](#current-limitations)
+- [Removing the integration](#removing-the-integration)
 
 ## What this integration does
 
@@ -75,6 +77,11 @@ resolved brightness:         100
 When `motion_boost` expires, the layers underneath it are recomputed and the
 brightness returns to 50%. When `night_max` later deactivates, the source value
 of 100% is visible again.
+
+## Requirements
+
+- Home Assistant 2026.7.0 or newer.
+- HACS is optional; manual installation is also supported.
 
 ## Installation
 
@@ -138,7 +145,7 @@ together by the set action.
 | Opacity | `1` |
 | Include in set actions | Yes |
 | Lifetime | `duration` |
-| Duration in seconds | `60` |
+| Duration | `00:01:00` |
 
 Create a second layer with the same settings except:
 
@@ -150,7 +157,7 @@ Create a second layer with the same settings except:
 
 Brightness values are percentages from `0` to `100`.
 
-### 3. Activate it from an automation
+### 3. Activate the set from an automation
 
 ```yaml
 alias: Hallway - front door motion boost
@@ -165,7 +172,7 @@ actions:
 mode: restart
 ```
 
-Every activation refreshes the 60-second timer. With `mode: restart`, repeated
+Every activation refreshes both 60-second timers. With `mode: restart`, repeated
 motion also restarts the automation cleanly.
 
 ## Core concepts
@@ -189,9 +196,13 @@ by set actions even when the option is enabled.
 
 An activatable set must not include two source layers targeting the same
 channel. Overlay Scenes rejects the entire activation before changing anything
-if it detects conflicting included sources. Put mutually exclusive sources in
-different sets, or turn off **Include in set actions** and control those sources
-individually.
+if it detects conflicting included sources. Turn off **Include in set actions**
+and control mutually exclusive sources individually.
+
+A channel should normally be owned by one Overlay Set. Separate sets have
+independent compositors: sources in different sets do not evict or compose with
+one another. If sets must overlap, deactivate the active set before activating
+the other so they do not contend over the real entity.
 
 Layer IDs are local to their Overlay Set. Individual layer actions always use
 the qualified reference `<overlay_set_id>.<layer_id>`. For example,
@@ -248,8 +259,8 @@ source_a targets: hallway_1 + hallway_2 brightness
 source_b targets: hallway_2 brightness only
 ```
 
-Activating `source_b` evicts `source_a` from brightness, but `source_a` remains
-the source for state.
+Activating `source_b` evicts `source_a` from hallway 2 brightness, but
+`source_a` remains the source for hallway 1 brightness.
 
 An explicit boolean `false` source is authoritative. State modifiers do not
 turn the channel back on until that source is replaced or deactivated. This is
@@ -400,7 +411,7 @@ without changing the rest of its set.
 | Opacity | Yes | `0`–`1`; used by numeric and RGB `override`. |
 | Include in set actions | Yes | Whether `activate_set` and `deactivate_set` control this layer. Condition layers are always skipped. |
 | Lifetime | Yes | `duration`, `until_trigger`, or `while_condition`. |
-| Duration in seconds | For duration | Default lifetime after activation. |
+| Duration | For duration | Default lifetime after activation, entered as a Home Assistant duration such as `00:01:00`. |
 | Condition entity | For while-condition | Entity whose truthiness controls the layer. |
 
 ### Layer values
@@ -499,7 +510,7 @@ The layer expires automatically after its configured number of seconds.
 
 ```text
 Lifetime:            duration
-Duration in seconds: 60
+Duration: 00:01:00
 ```
 
 Activating an already-active duration layer refreshes its timer.
@@ -556,6 +567,8 @@ source of truth.
 The **Value or template** field accepts Home Assistant templates.
 
 Example: cap media volume using an input number:
+
+This example assumes an Overlay Set with ID `whole_house_audio`.
 
 ```jinja2
 {{ states('input_number.night_volume_limit') | float(0.25) }}
@@ -627,7 +640,7 @@ For duration layers, activating again resets the timer.
 ```yaml
 - action: overlay_scenes.activate_layer
   data:
-    layer_id: hallway_automation.hallway_motion_boost
+    layer_id: hallway_automation.hallway_front_door_boost
     duration_override: "00:05:00"
 ```
 
@@ -665,7 +678,7 @@ switch.hallway_scene_control
 sun.sun
 ```
 
-### Layers 1 and 2: sunset sources
+### Sunset sources
 
 | Field | Value |
 |---|---|
@@ -715,7 +728,7 @@ actions:
 mode: single
 ```
 
-### Layer 2: night brightness cap
+### Night brightness cap
 
 | Field | Value |
 |---|---|
@@ -759,7 +772,7 @@ mode: single
 
 The Overlay Scenes layer follows this helper automatically.
 
-### Layer 3: front-door boost
+### Front-door boost
 
 | Field | Value |
 |---|---|
@@ -773,7 +786,7 @@ The Overlay Scenes layer follows this helper automatically.
 | Opacity | `1` |
 | Include in set actions | No |
 | Lifetime | `duration` |
-| Duration in seconds | `60` |
+| Duration | `00:01:00` |
 
 ```yaml
 alias: Hallway - front door boost after dark
@@ -795,7 +808,7 @@ mode: restart
 While night mode is active, hallway 1 becomes 100% while hallway 2 remains
 capped at 50%. After 60 seconds, hallway 1 returns to 50%.
 
-### Layers 4 and 5: hallway night light
+### Hallway night light
 
 State and brightness need different operations, so configure two layers.
 
@@ -813,7 +826,7 @@ State layer:
 | Opacity | `1` |
 | Include in set actions | No |
 | Lifetime | `duration` |
-| Duration in seconds | `120` |
+| Duration | `00:02:00` |
 
 Brightness layer:
 
@@ -829,7 +842,7 @@ Brightness layer:
 | Opacity | `1` |
 | Include in set actions | No |
 | Lifetime | `duration` |
-| Duration in seconds | `120` |
+| Duration | `00:02:00` |
 
 Activate both from the same automation:
 
@@ -858,12 +871,11 @@ When no source is active and the lights are off, these layers turn them on at
 
 ### Physical switch sources
 
-Create four single-attribute source layers. They share the target entities,
-`override` source operation, priority `0`, opacity `1`, **Include in set
-actions** disabled, and an `until_trigger` lifetime.
+Create four single-attribute source layers targeting `light.hallway_1` and
+`light.hallway_2`. They share the `override` source operation, priority `0`,
+opacity `1`, **Include in set actions** disabled, and an `until_trigger`
+lifetime.
 
-| Field | Value |
-|---|---|
 | Layer ID | Attribute | Value |
 |---|---|---|
 | `hallway_switch_on_state` | `state` | `true` |
@@ -910,9 +922,11 @@ separate 22:00 automation may still call `deactivate_layer`, but that later call
 is harmless because the sunset source no longer occupies those channels. The
 night cap still applies, so the resolved brightness is 50% while night mode is
 active. The switch-off layers then become the explicit off sources and remain
-off until another source replaces it.
+off until other sources replace them.
 
 ## Additional examples
+
+The audio examples below assume an Overlay Set with ID `whole_house_audio`.
 
 ### Quiet-hours media volume
 
@@ -952,7 +966,7 @@ To force speakers toward 10% during an announcement:
 | Opacity | `1` |
 | Include in set actions | Yes |
 | Lifetime | `duration` |
-| Duration in seconds | `30` |
+| Duration | `00:00:30` |
 
 ```yaml
 - action: overlay_scenes.activate_layer
@@ -1012,8 +1026,8 @@ Composite sensor attributes include:
 | `overlay_set_id` | Stable ID used by set-level actions |
 | `entity_id` | Real target entity |
 | `attribute` | Composited state or attribute |
-| `source_layer_id` | Current source, or null |
-| `modifier_layer_ids` | Modifiers in fold order |
+| `source_layer_id` | Qualified reference of the current source, or null |
+| `modifier_layer_ids` | Qualified modifier references in fold order |
 | `resolved_value` | Latest calculated output |
 
 ### Layer-status sensors
@@ -1029,6 +1043,7 @@ Its state is `idle` or `active`. Attributes include:
 | Attribute | Meaning |
 |---|---|
 | `overlay_set_id` | Stable ID used by set-level actions |
+| `layer_id` | Qualified `<overlay_set_id>.<layer_id>` action reference |
 | `role` | Source or modifier |
 | `priority` | Modifier priority |
 | `channels` | All configured channel keys |
@@ -1093,7 +1108,8 @@ Check that:
 
 1. The Layer subentry was saved successfully.
 2. The parent Overlay Set is loaded.
-3. The automation uses the exact Layer ID, not the display name.
+3. The automation uses the exact qualified `<overlay_set_id>.<layer_id>`
+   reference, not a display name or bare local Layer ID.
 
 ### A service says the Overlay Set is unknown
 
@@ -1103,10 +1119,11 @@ integration entry was created, not its display name. The ID is also exposed as
 
 ### Set activation reports conflicting sources
 
-Two opted-in source layers target the same channel. Overlay Scenes rejects the
-activation before changing the set. Either move the mutually exclusive sources
-to different Overlay Sets or disable **Include in set actions** and activate
-those layers individually.
+Two opted-in source layers in the same set target the same channel. Overlay
+Scenes rejects the activation before changing the set. Disable **Include in set
+actions** and activate those mutually exclusive sources individually. Do not
+move overlapping sources into independently active sets; separate set
+compositors do not evict each other.
 
 ### A service rejects a layer reference
 
@@ -1184,12 +1201,14 @@ Scenes does not currently dispatch arbitrary Home Assistant domains.
 
 ## Removing the integration
 
-1. Deactivate any layers whose effects you do not want left on the real
-   entities.
+1. Deactivate every active layer in the Overlay Set. This clears persisted
+   occupancy as well as removing its effect from the real entities.
 2. Open **Settings → Devices & services**.
 3. Open the Overlay Scenes entry menu and remove the entry.
 4. Remove the custom component files and restart Home Assistant if uninstalling
    manually.
 
-Removing an Overlay Set stops its timers and listeners. It does not attempt to
-restore every real entity to an earlier historical state after removal.
+Removing an Overlay Set stops its timers and listeners. It does not delete
+persisted active occupancy or restore every real entity to an earlier historical
+state. Deactivate the set before removal; otherwise recreating the same Overlay
+Set ID may restore retained occupancy.
