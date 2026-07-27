@@ -1,12 +1,14 @@
 {
   "title": "Overlay Scenes",
   "config": {
+    "entry_type": "Overlay Set",
     "step": {"user": {"title": "Create an Overlay Set", "description": "Layers can be added to this set after setup.", "data": {"name": "Name", "set_id": "Overlay Set ID"}}},
     "error": {"invalid_id": "Use only lowercase letters, numbers, and underscores."}
   },
   "config_subentries": {
     "layer": {
       "title": "Layer",
+      "entry_type": "Layer",
       "step": {
         "user": {
           "title": "Add layer",

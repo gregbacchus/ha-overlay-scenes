@@ -23,7 +23,12 @@ async def async_setup_entry(
     runtime: OverlayRuntime = hass.data[DOMAIN][DATA_RUNTIMES][entry.entry_id]
     channels = {channel for layer in runtime.layers.values() for channel in layer.channels}
     async_add_entities(
-        [CompositeSensor(runtime, entry.title, channel) for channel in channels]
+        [
+            CompositeSensor(
+                runtime, entry.data.get("name", entry.title), channel
+            )
+            for channel in channels
+        ]
         + [LayerStatusSensor(runtime, layer) for layer in runtime.layers.values()]
     )
 

@@ -23,6 +23,7 @@ from .const import (
     SUBENTRY_TYPE_LAYER,
 )
 from .models import Channel, Layer, LifetimeSpec, parse_layer_reference
+from .presentation import layer_title, overlay_set_title
 from .runtime import OverlayRuntime
 
 ACTIVATE_SCHEMA = vol.Schema(
@@ -86,10 +87,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         r"[^a-z0-9_]+", "_", entry.data.get("name", entry.title).lower()
     ).strip("_")
     set_id = entry.data.get("set_id", entry.unique_id or fallback_set_id or entry.entry_id)
+    set_name = entry.data.get("name", entry.title)
+    hass.config_entries.async_update_entry(
+        entry, title=overlay_set_title(set_name, set_id)
+    )
     layers: dict[str, Layer] = {}
     for subentry in entry.subentries.values():
         if subentry.subentry_type != SUBENTRY_TYPE_LAYER:
             continue
+        hass.config_entries.async_update_subentry(
+            entry, subentry, title=layer_title(set_id, subentry.data)
+        )
         layer = _layer_from_config(set_id, dict(subentry.data))
         if layer.id in layers:
             raise ValueError(

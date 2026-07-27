@@ -1,6 +1,7 @@
 {
   "title": "Overlay Scenes",
   "config": {
+    "entry_type": "Overlay Set",
     "step": {
       "user": {
         "title": "Create an Overlay Set",
@@ -13,6 +14,7 @@
   "config_subentries": {
     "layer": {
       "title": "Layer",
+      "entry_type": "Layer",
       "step": {
         "user": {
           "title": "Add layer",

@@ -24,6 +24,7 @@ from homeassistant.helpers.selector import (
 )
 
 from .const import ALL_OPS, DOMAIN, SUBENTRY_TYPE_LAYER
+from .presentation import layer_title, overlay_set_title
 
 ID_PATTERN = r"^[a-z0-9_]+$"
 
@@ -75,7 +76,10 @@ class OverlayScenesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
             await self.async_set_unique_id(user_input["set_id"])
             self._abort_if_unique_id_configured()
-            return self.async_create_entry(title=user_input["name"], data=user_input)
+            return self.async_create_entry(
+                title=overlay_set_title(user_input["name"], user_input["set_id"]),
+                data=user_input,
+            )
         return self.async_show_form(step_id="user", data_schema=SET_SCHEMA)
 
     @classmethod
@@ -94,7 +98,11 @@ class LayerSubentryFlowHandler(ConfigSubentryFlow):
         """Add a layer."""
         errors = self._validate(user_input)
         if user_input is not None and not errors:
-            return self.async_create_entry(title=user_input["layer_id"], data=user_input)
+            entry = self._get_entry()
+            set_id = entry.data["set_id"]
+            return self.async_create_entry(
+                title=layer_title(set_id, user_input), data=user_input
+            )
         return self.async_show_form(step_id="user", data_schema=LAYER_SCHEMA, errors=errors)
 
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None):
@@ -103,7 +111,10 @@ class LayerSubentryFlowHandler(ConfigSubentryFlow):
         errors = self._validate(user_input)
         if user_input is not None and not errors:
             return self.async_update_and_abort(
-                self._get_entry(), subentry, data=user_input, title=user_input["layer_id"]
+                self._get_entry(),
+                subentry,
+                data=user_input,
+                title=layer_title(self._get_entry().data["set_id"], user_input),
             )
         schema = self.add_suggested_values_to_schema(LAYER_SCHEMA, subentry.data)
         return self.async_show_form(step_id="reconfigure", data_schema=schema, errors=errors)
