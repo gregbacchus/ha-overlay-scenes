@@ -1,11 +1,19 @@
 {
+  "ignorePaths": [
+    ".gitignore"
+  ],
   "words": [
     "automations",
+    "crossfade",
+    "gregbacchus",
+    "HACS",
     "hass",
     "homeassistant",
+    "lerp",
     "nand",
     "unsub",
     "unsubs",
+    "uplight",
     "writethrough",
     "xnor"
   ]
