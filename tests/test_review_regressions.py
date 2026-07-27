@@ -25,7 +25,11 @@ def _install_home_assistant_stubs() -> None:
     core.Context = lambda: SimpleNamespace(id="generated", parent_id=None)
     core.Event = object
     core.HomeAssistant = object
-    core.callback = lambda function: function
+    def callback(function):
+        function._hass_callback = True
+        return function
+
+    core.callback = callback
     constants = ModuleType("homeassistant.const")
     constants.ATTR_ENTITY_ID = "entity_id"
     constants.SERVICE_TURN_OFF = "turn_off"
@@ -106,6 +110,38 @@ class _ConditionHass:
 
 
 class ReviewRegressionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_base_state_listener_is_registered_as_event_loop_callback(self) -> None:
+        channel = Channel("light.hall", "brightness")
+        layer = Layer("night", "set", "modifier", [channel], 50, "clamp_max")
+
+        class EmptyLayerStore:
+            def __init__(self, hass):
+                pass
+
+            async def async_load(self):
+                return {"active": []}
+
+        tracked_callbacks = []
+        hass = SimpleNamespace(
+            states=SimpleNamespace(get=lambda entity_id: None),
+            track=lambda entity_ids, listener: (
+                tracked_callbacks.append(listener) or (lambda: None)
+            ),
+        )
+        original_store = runtime_module.LayerStore
+        runtime_module.LayerStore = EmptyLayerStore
+        try:
+            runtime = OverlayRuntime(hass, "set", {layer.id: layer})
+            await runtime.async_start()
+        finally:
+            runtime_module.LayerStore = original_store
+
+        self.assertEqual(len(tracked_callbacks), 1)
+        self.assertTrue(
+            getattr(tracked_callbacks[0], "_hass_callback", False),
+            "state listener must be marked as safe to execute on the event loop",
+        )
+
     def test_layer_reference_is_namespaced_by_overlay_set(self) -> None:
         layer = Layer(
             "boost",

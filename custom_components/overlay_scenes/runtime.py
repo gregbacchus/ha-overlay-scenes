@@ -57,11 +57,17 @@ class OverlayRuntime:
                 self.hass.states.get(channel.entity_id), channel
             )
         for entity_id, entity_channels in by_entity.items():
+            @callback
+            def handle_base_changed(
+                event: Event, items: set[Channel] = entity_channels
+            ) -> None:
+                self._base_changed(event, items)
+
             self._state_unsubs.append(
                 async_track_state_change_event(
                     self.hass,
                     [entity_id],
-                    lambda event, items=entity_channels: self._base_changed(event, items),
+                    handle_base_changed,
                 )
             )
 
