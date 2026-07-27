@@ -1,5 +1,11 @@
 {
   "title": "Overlay Scenes",
+  "entity": {
+    "sensor": {
+      "composite": {"name": "{target_name} {attribute_name} composite"},
+      "layer_status": {"name": "{layer_name} status"}
+    }
+  },
   "config": {
     "entry_type": "Overlay Set",
     "initiate_flow": {"user": "Add Overlay Set"},

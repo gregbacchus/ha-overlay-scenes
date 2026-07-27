@@ -23,3 +23,34 @@ def layer_title(overlay_set_id: str, data: Mapping[str, Any]) -> str:
     return (
         f"{overlay_set_id}.{data['layer_id']} · {data['attribute'].strip()} · {targets}"
     )
+
+
+def display_name(
+    entity_id: str, registry_name: str | None, state_name: str | None
+) -> str:
+    """Resolve a target's current user-facing name without using a sentinel."""
+    if state_name is not None:
+        return state_name
+    if registry_name is not None:
+        return registry_name
+    object_id = entity_id.partition(".")[2]
+    return object_id.replace("_", " ").capitalize()
+
+
+def renamed_layer_targets(
+    data: Mapping[str, Any], old_entity_id: str, new_entity_id: str
+) -> dict[str, Any] | None:
+    """Return updated layer data when a configured target changes address."""
+    configured_entities = data["entities"]
+    if isinstance(configured_entities, str):
+        if configured_entities != old_entity_id:
+            return None
+        return dict(data) | {"entities": new_entity_id}
+
+    if old_entity_id not in configured_entities:
+        return None
+    entities = [
+        new_entity_id if entity_id == old_entity_id else entity_id
+        for entity_id in configured_entities
+    ]
+    return dict(data) | {"entities": entities}

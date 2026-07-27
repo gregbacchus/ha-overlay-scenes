@@ -14,8 +14,10 @@ package.__path__ = [
 sys.modules.setdefault(package.__name__, package)
 
 from custom_components.overlay_scenes.presentation import (
+    display_name,
     layer_title,
     overlay_set_title,
+    renamed_layer_targets,
 )
 
 
@@ -88,3 +90,62 @@ class ConfigPresentationTests(unittest.TestCase):
                     ],
                     "Edit Layer",
                 )
+                self.assertEqual(
+                    translations["entity"]["sensor"]["composite"]["name"],
+                    "{target_name} {attribute_name} composite",
+                )
+                self.assertEqual(
+                    translations["entity"]["sensor"]["layer_status"]["name"],
+                    "{layer_name} status",
+                )
+
+    def test_display_name_prefers_effective_state_name_then_registry_then_id(self) -> None:
+        self.assertEqual(
+            display_name("light.hallway_near_door", "Light", "Hallway near door"),
+            "Hallway near door",
+        )
+        self.assertEqual(
+            display_name("light.hallway_near_door", "Near door", None),
+            "Near door",
+        )
+        self.assertEqual(
+            display_name("light.hallway_near_door", None, None),
+            "Hallway near door",
+        )
+
+    def test_entity_id_rename_updates_only_matching_layer_targets(self) -> None:
+        original = {
+            "layer_id": "night",
+            "entities": ["light.hallway_old", "light.other"],
+            "attribute": "brightness",
+        }
+        self.assertEqual(
+            renamed_layer_targets(
+                original, "light.hallway_old", "light.hallway_new"
+            ),
+            {
+                "layer_id": "night",
+                "entities": ["light.hallway_new", "light.other"],
+                "attribute": "brightness",
+            },
+        )
+        self.assertIsNone(
+            renamed_layer_targets(original, "light.absent", "light.replacement")
+        )
+
+    def test_single_entity_target_remains_a_single_selector_value_after_rename(self) -> None:
+        original = {
+            "layer_id": "night",
+            "entities": "light.hallway_old",
+            "attribute": "brightness",
+        }
+        self.assertEqual(
+            renamed_layer_targets(
+                original, "light.hallway_old", "light.hallway_new"
+            ),
+            {
+                "layer_id": "night",
+                "entities": "light.hallway_new",
+                "attribute": "brightness",
+            },
+        )

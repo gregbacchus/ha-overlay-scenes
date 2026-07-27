@@ -9,8 +9,15 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import Event, HomeAssistant, ServiceCall, callback
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.device_registry import EventDeviceRegistryUpdatedData
+from homeassistant.helpers.entity_registry import EventEntityRegistryUpdatedData
+from homeassistant.helpers.event import (
+    async_track_device_registry_updated_event,
+    async_track_entity_registry_updated_event,
+)
 
 from .const import (
     DATA_RUNTIMES,
@@ -23,7 +30,7 @@ from .const import (
     SUBENTRY_TYPE_LAYER,
 )
 from .models import Channel, Layer, LifetimeSpec, parse_layer_reference
-from .presentation import layer_title, overlay_set_title
+from .presentation import layer_title, overlay_set_title, renamed_layer_targets
 from .runtime import OverlayRuntime
 
 ACTIVATE_SCHEMA = vol.Schema(
@@ -114,6 +121,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await runtime.async_start()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
+    _track_target_name_changes(hass, entry, layers)
     return True
 
 
@@ -128,6 +136,72 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def _async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     await hass.config_entries.async_reload(entry.entry_id)
+
+
+def _track_target_name_changes(
+    hass: HomeAssistant, entry: ConfigEntry, layers: dict[str, Layer]
+) -> None:
+    """Reload generated names and follow target entity-ID changes."""
+    target_entity_ids = {
+        channel.entity_id for layer in layers.values() for channel in layer.channels
+    }
+    if not target_entity_ids:
+        return
+
+    @callback
+    def handle_entity_update(
+        event: Event[EventEntityRegistryUpdatedData],
+    ) -> None:
+        if event.data["action"] != "update":
+            return
+        if old_entity_id := event.data.get("old_entity_id"):
+            targets_updated = False
+            for subentry in entry.subentries.values():
+                if subentry.subentry_type != SUBENTRY_TYPE_LAYER:
+                    continue
+                updated_data = renamed_layer_targets(
+                    subentry.data, old_entity_id, event.data["entity_id"]
+                )
+                if updated_data is None:
+                    continue
+                targets_updated = True
+                hass.config_entries.async_update_subentry(
+                    entry, subentry, data=updated_data
+                )
+            if targets_updated:
+                return
+
+        changes = event.data["changes"]
+        if {"name", "original_name", "device_id"}.isdisjoint(changes):
+            return
+        hass.config_entries.async_schedule_reload(entry.entry_id)
+
+    entry.async_on_unload(
+        async_track_entity_registry_updated_event(
+            hass, target_entity_ids, handle_entity_update
+        )
+    )
+
+    entity_registry = er.async_get(hass)
+    target_device_ids = {
+        registry_entry.device_id
+        for entity_id in target_entity_ids
+        if (registry_entry := entity_registry.async_get(entity_id)) is not None
+        and registry_entry.device_id is not None
+    }
+    if not target_device_ids:
+        return
+
+    @callback
+    def handle_device_update(event: Event[EventDeviceRegistryUpdatedData]) -> None:
+        if event.data["action"] == "update":
+            hass.config_entries.async_schedule_reload(entry.entry_id)
+
+    entry.async_on_unload(
+        async_track_device_registry_updated_event(
+            hass, target_device_ids, handle_device_update
+        )
+    )
 
 
 def _parse_value(value: Any) -> Any:

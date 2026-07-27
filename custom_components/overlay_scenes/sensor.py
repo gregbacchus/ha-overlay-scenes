@@ -6,11 +6,15 @@ from typing import Any
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import DATA_RUNTIMES, DOMAIN
 from .models import Channel, Layer
+from .presentation import display_name
 from .runtime import OverlayRuntime
 
 
@@ -21,26 +25,52 @@ async def async_setup_entry(
 ) -> None:
     """Set up diagnostic entities."""
     runtime: OverlayRuntime = hass.data[DOMAIN][DATA_RUNTIMES][entry.entry_id]
+    set_name = entry.data.get("name", entry.title)
     channels = {channel for layer in runtime.layers.values() for channel in layer.channels}
     async_add_entities(
         [
             CompositeSensor(
-                runtime, entry.data.get("name", entry.title), channel
+                runtime, set_name, channel, _target_display_name(hass, channel.entity_id)
             )
             for channel in channels
         ]
-        + [LayerStatusSensor(runtime, layer) for layer in runtime.layers.values()]
+        + [
+            LayerStatusSensor(runtime, set_name, layer)
+            for layer in runtime.layers.values()
+        ]
     )
+
+
+def _target_display_name(hass: HomeAssistant, entity_id: str) -> str:
+    """Return the current registry-aware display name for a target entity."""
+    registry_entry = er.async_get(hass).async_get(entity_id)
+    registry_name: str | None = None
+    if registry_entry is not None:
+        if registry_entry.name is not None:
+            registry_name = registry_entry.name
+        elif registry_entry.original_name is not None:
+            registry_name = registry_entry.original_name
+    state = hass.states.get(entity_id)
+    state_name = state.name if state is not None else None
+    return display_name(entity_id, registry_name, state_name)
 
 
 class RuntimeSensor(SensorEntity):
     """Base class for runtime-backed sensors."""
 
     _attr_has_entity_name = True
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
-    def __init__(self, runtime: OverlayRuntime) -> None:
+    def __init__(self, runtime: OverlayRuntime, set_name: str) -> None:
         self.runtime = runtime
         self._unsub = None
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, runtime.entry_id)},
+            name=set_name,
+            entry_type=DeviceEntryType.SERVICE,
+            manufacturer="Overlay Scenes",
+            model="Overlay Set",
+        )
 
     async def async_added_to_hass(self) -> None:
         self._unsub = self.runtime.add_listener(self._handle_update)
@@ -57,10 +87,20 @@ class RuntimeSensor(SensorEntity):
 class CompositeSensor(RuntimeSensor):
     """Expose the current result and active fold stack."""
 
-    def __init__(self, runtime: OverlayRuntime, set_name: str, channel: Channel) -> None:
-        super().__init__(runtime)
+    def __init__(
+        self,
+        runtime: OverlayRuntime,
+        set_name: str,
+        channel: Channel,
+        target_name: str,
+    ) -> None:
+        super().__init__(runtime, set_name)
         self.channel = channel
-        self._attr_name = f"{set_name} {channel.entity_id} {channel.attribute} composite"
+        self._attr_translation_key = "composite"
+        self._attr_translation_placeholders = {
+            "target_name": target_name,
+            "attribute_name": channel.attribute.replace("_", " ").capitalize(),
+        }
         self._attr_unique_id = f"{runtime.entry_id}_{channel.key}_composite"
 
     @property
@@ -84,10 +124,13 @@ class CompositeSensor(RuntimeSensor):
 class LayerStatusSensor(RuntimeSensor):
     """Expose a layer's activity and lifecycle diagnostics."""
 
-    def __init__(self, runtime: OverlayRuntime, layer: Layer) -> None:
-        super().__init__(runtime)
+    def __init__(self, runtime: OverlayRuntime, set_name: str, layer: Layer) -> None:
+        super().__init__(runtime, set_name)
         self.layer = layer
-        self._attr_name = f"{layer.id} status"
+        self._attr_translation_key = "layer_status"
+        self._attr_translation_placeholders = {
+            "layer_name": layer.id.replace("_", " ").capitalize()
+        }
         self._attr_unique_id = f"{runtime.entry_id}_{layer.id}_status"
 
     @property
