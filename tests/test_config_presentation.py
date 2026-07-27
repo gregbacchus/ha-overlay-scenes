@@ -72,3 +72,19 @@ class ConfigPresentationTests(unittest.TestCase):
                     translations["config_subentries"]["layer"]["entry_type"],
                     "Layer",
                 )
+                self.assertEqual(
+                    translations["config"]["initiate_flow"]["user"],
+                    "Add Overlay Set",
+                )
+                self.assertEqual(
+                    translations["config_subentries"]["layer"]["initiate_flow"][
+                        "user"
+                    ],
+                    "Add Layer",
+                )
+                self.assertEqual(
+                    translations["config_subentries"]["layer"]["initiate_flow"][
+                        "reconfigure"
+                    ],
+                    "Edit Layer",
+                )
