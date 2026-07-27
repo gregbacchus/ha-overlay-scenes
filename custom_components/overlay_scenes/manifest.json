@@ -1,0 +1,10 @@
+{
+  "domain": "overlay_scenes",
+  "name": "Overlay Scenes",
+  "codeowners": ["@gregbacchus"],
+  "config_flow": true,
+  "documentation": "https://github.com/gregbacchus/ha-overlay-scenes",
+  "issue_tracker": "https://github.com/gregbacchus/ha-overlay-scenes/issues",
+  "iot_class": "calculated",
+  "version": "0.1.0"
+}

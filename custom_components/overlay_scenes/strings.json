@@ -1,0 +1,33 @@
+{
+  "title": "Overlay Scenes",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Create an Overlay Set",
+        "description": "Layers can be added to this set after setup.",
+        "data": {"name": "Name"}
+      }
+    }
+  },
+  "config_subentries": {
+    "layer": {
+      "title": "Layer",
+      "step": {
+        "user": {
+          "title": "Add layer",
+          "data": {
+            "layer_id": "Layer ID", "role": "Role", "entities": "Target entities",
+            "attribute": "Attribute(s), comma-separated", "value": "Value or template", "op": "Operation",
+            "priority": "Priority", "opacity": "Opacity", "lifetime_mode": "Lifetime",
+            "duration_seconds": "Duration in seconds", "condition_entity": "Condition entity"
+          }
+        },
+        "reconfigure": {"title": "Update layer"}
+      },
+      "error": {
+        "duration_required": "A duration is required for duration layers.",
+        "condition_required": "A condition entity is required for while-condition layers."
+      }
+    }
+  }
+}

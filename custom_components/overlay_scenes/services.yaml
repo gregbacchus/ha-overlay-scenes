@@ -1,0 +1,24 @@
+activate_layer:
+  name: Activate layer
+  description: Activate or refresh a configured overlay layer.
+  fields:
+    layer_id:
+      name: Layer ID
+      required: true
+      selector:
+        text:
+    duration_override:
+      name: Duration override
+      required: false
+      selector:
+        duration:
+
+deactivate_layer:
+  name: Deactivate layer
+  description: Deactivate a configured overlay layer.
+  fields:
+    layer_id:
+      name: Layer ID
+      required: true
+      selector:
+        text:
