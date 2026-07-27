@@ -30,6 +30,7 @@ from .const import (
     SERVICE_DEACTIVATE_SET,
     SUBENTRY_TYPE_LAYER,
 )
+from .device_cleanup import remove_legacy_overlay_set_device
 from .ha_presentation import layer_target_names
 from .models import Channel, Layer, LifetimeSpec, parse_layer_reference
 from .presentation import layer_title, overlay_set_title, renamed_layer_targets
@@ -125,7 +126,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     hass.data[DOMAIN][DATA_RUNTIMES][entry.entry_id] = runtime
     await runtime.async_start()
-    _remove_legacy_overlay_set_device(hass, entry)
+    remove_legacy_overlay_set_device(dr.async_get(hass), DOMAIN, entry.entry_id)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
     _track_target_name_changes(hass, entry, layers)
@@ -143,18 +144,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def _async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     await hass.config_entries.async_reload(entry.entry_id)
-
-
-def _remove_legacy_overlay_set_device(
-    hass: HomeAssistant, entry: ConfigEntry
-) -> None:
-    """Remove the redundant service device from the previous UI structure."""
-    device_registry = dr.async_get(hass)
-    legacy_device = device_registry.async_get_device_by_identifier(
-        (DOMAIN, entry.entry_id), entry.entry_id
-    )
-    if legacy_device is not None:
-        device_registry.async_remove_device(legacy_device.id)
 
 
 def _track_target_name_changes(
