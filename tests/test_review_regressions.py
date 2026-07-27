@@ -17,7 +17,7 @@ def _install_home_assistant_stubs() -> None:
         return
 
     package = ModuleType("custom_components.overlay_scenes")
-    package.__path__ = [str(Path(__file__).parents[1])]
+    package.__path__ = [str(Path(__file__).parents[1] / "custom_components" / "overlay_scenes")]
     sys.modules[package.__name__] = package
 
     homeassistant = ModuleType("homeassistant")
