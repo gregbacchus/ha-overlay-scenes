@@ -11,7 +11,11 @@ def overlay_set_title(name: str, set_id: str) -> str:
     return f"{name} · ID: {set_id}"
 
 
-def layer_title(overlay_set_id: str, data: Mapping[str, Any]) -> str:
+def layer_title(
+    overlay_set_id: str,
+    data: Mapping[str, Any],
+    target_names: Mapping[str, str] | None = None,
+) -> str:
     """Return a Layer title with its address and controlled channels."""
     configured_entities = data["entities"]
     entities = (
@@ -19,9 +23,15 @@ def layer_title(overlay_set_id: str, data: Mapping[str, Any]) -> str:
         if isinstance(configured_entities, str)
         else configured_entities
     )
-    targets = ", ".join(entities)
+    targets = ", ".join(
+        target_names.get(entity_id, entity_id) if target_names else entity_id
+        for entity_id in entities
+    )
+    readable_layer_name = data["layer_id"].replace("_", " ").capitalize()
+    attribute_name = data["attribute"].strip().replace("_", " ").capitalize()
     return (
-        f"{overlay_set_id}.{data['layer_id']} · {data['attribute'].strip()} · {targets}"
+        f"{readable_layer_name} · {overlay_set_id}.{data['layer_id']} · "
+        f"{attribute_name} · {targets}"
     )
 
 

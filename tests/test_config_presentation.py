@@ -39,10 +39,14 @@ class ConfigPresentationTests(unittest.TestCase):
                     "entities": ["light.hallway_1", "light.hallway_2"],
                     "attribute": "brightness",
                 },
+                {
+                    "light.hallway_1": "Hallway near door",
+                    "light.hallway_2": "Hallway near kitchen",
+                },
             ),
             (
-                "hallway_lights.hallway_night_dimness · brightness · "
-                "light.hallway_1, light.hallway_2"
+                "Hallway night dimness · hallway_lights.hallway_night_dimness · "
+                "Brightness · Hallway near door, Hallway near kitchen"
             ),
         )
 
@@ -55,8 +59,9 @@ class ConfigPresentationTests(unittest.TestCase):
                     "entities": "light.hallway",
                     "attribute": "state",
                 },
+                {"light.hallway": "Hallway"},
             ),
-            "hallway_lights.hallway_power · state · light.hallway",
+            "Hallway power · hallway_lights.hallway_power · State · Hallway",
         )
 
     def test_native_entry_types_name_overlay_sets_and_layers(self) -> None:

@@ -24,6 +24,7 @@ from homeassistant.helpers.selector import (
 )
 
 from .const import ALL_OPS, DOMAIN, SUBENTRY_TYPE_LAYER
+from .ha_presentation import layer_target_names
 from .presentation import layer_title, overlay_set_title
 
 ID_PATTERN = r"^[a-z0-9_]+$"
@@ -101,7 +102,10 @@ class LayerSubentryFlowHandler(ConfigSubentryFlow):
             entry = self._get_entry()
             set_id = entry.data["set_id"]
             return self.async_create_entry(
-                title=layer_title(set_id, user_input), data=user_input
+                title=layer_title(
+                    set_id, user_input, layer_target_names(self.hass, user_input)
+                ),
+                data=user_input,
             )
         return self.async_show_form(step_id="user", data_schema=LAYER_SCHEMA, errors=errors)
 
@@ -114,7 +118,11 @@ class LayerSubentryFlowHandler(ConfigSubentryFlow):
                 self._get_entry(),
                 subentry,
                 data=user_input,
-                title=layer_title(self._get_entry().data["set_id"], user_input),
+                title=layer_title(
+                    self._get_entry().data["set_id"],
+                    user_input,
+                    layer_target_names(self.hass, user_input),
+                ),
             )
         schema = self.add_suggested_values_to_schema(LAYER_SCHEMA, subentry.data)
         return self.async_show_form(step_id="reconfigure", data_schema=schema, errors=errors)

@@ -11,6 +11,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import Event, HomeAssistant, ServiceCall, callback
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import EventDeviceRegistryUpdatedData
 from homeassistant.helpers.entity_registry import EventEntityRegistryUpdatedData
@@ -29,6 +30,7 @@ from .const import (
     SERVICE_DEACTIVATE_SET,
     SUBENTRY_TYPE_LAYER,
 )
+from .ha_presentation import layer_target_names
 from .models import Channel, Layer, LifetimeSpec, parse_layer_reference
 from .presentation import layer_title, overlay_set_title, renamed_layer_targets
 from .runtime import OverlayRuntime
@@ -103,7 +105,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if subentry.subentry_type != SUBENTRY_TYPE_LAYER:
             continue
         hass.config_entries.async_update_subentry(
-            entry, subentry, title=layer_title(set_id, subentry.data)
+            entry,
+            subentry,
+            title=layer_title(
+                set_id, subentry.data, layer_target_names(hass, subentry.data)
+            ),
         )
         layer = _layer_from_config(set_id, dict(subentry.data))
         if layer.id in layers:
@@ -119,6 +125,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     hass.data[DOMAIN][DATA_RUNTIMES][entry.entry_id] = runtime
     await runtime.async_start()
+    _remove_legacy_overlay_set_device(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
     _track_target_name_changes(hass, entry, layers)
@@ -136,6 +143,18 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def _async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     await hass.config_entries.async_reload(entry.entry_id)
+
+
+def _remove_legacy_overlay_set_device(
+    hass: HomeAssistant, entry: ConfigEntry
+) -> None:
+    """Remove the redundant service device from the previous UI structure."""
+    device_registry = dr.async_get(hass)
+    legacy_device = device_registry.async_get_device_by_identifier(
+        (DOMAIN, entry.entry_id), entry.entry_id
+    )
+    if legacy_device is not None:
+        device_registry.async_remove_device(legacy_device.id)
 
 
 def _track_target_name_changes(
