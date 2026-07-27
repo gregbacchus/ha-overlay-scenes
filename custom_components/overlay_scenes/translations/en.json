@@ -19,9 +19,15 @@
       "initiate_flow": {"user": "Add Layer", "reconfigure": "Edit Layer"},
       "step": {
         "user": {
-          "title": "Add layer",
+          "title": "Choose layer targets",
           "data": {
-            "layer_id": "Layer ID", "role": "Role", "entities": "Target entities",
+            "layer_id": "Layer ID", "role": "Role", "entities": "Target entities"
+          }
+        },
+        "details": {
+          "title": "Configure layer",
+          "description": "The attribute picker contains attributes currently shared by every selected entity.",
+          "data": {
             "attribute": "Attribute", "value": "Value or template", "op": "Operation",
             "priority": "Priority", "opacity": "Opacity", "lifetime_mode": "Lifetime",
             "include_in_set_actions": "Include in set actions",
@@ -29,9 +35,15 @@
           }
         },
         "reconfigure": {
-          "title": "Update layer",
+          "title": "Update layer targets",
           "data": {
-            "layer_id": "Layer ID", "role": "Role", "entities": "Target entities",
+            "layer_id": "Layer ID", "role": "Role", "entities": "Target entities"
+          }
+        },
+        "reconfigure_details": {
+          "title": "Update layer configuration",
+          "description": "The attribute picker contains attributes currently shared by every selected entity.",
+          "data": {
             "attribute": "Attribute", "value": "Value or template", "op": "Operation",
             "priority": "Priority", "opacity": "Opacity", "lifetime_mode": "Lifetime",
             "include_in_set_actions": "Include in set actions",
@@ -43,8 +55,47 @@
         "duration_required": "A duration is required for duration layers.",
         "condition_required": "A condition entity is required for while-condition layers.",
         "invalid_id": "Use only lowercase letters, numbers, and underscores.",
-        "single_attribute_required": "Enter exactly one attribute. Create another layer for another attribute."
+        "no_common_attribute": "The selected entities do not share an attribute that Overlay Scenes can control."
       }
+    }
+  },
+  "services": {
+    "activate_set": {
+      "name": "Activate Overlay Set",
+      "description": "Activate every opted-in non-condition layer in an Overlay Set.",
+      "fields": {
+        "config_entry_id": {"name": "Overlay Set", "description": "Select the Overlay Set to activate."},
+        "overlay_set_id": {"name": "Overlay Set ID", "description": "Qualified ID retained for existing automations."}
+      },
+      "sections": {"legacy_ids": {"name": "Legacy YAML identifiers"}}
+    },
+    "deactivate_set": {
+      "name": "Deactivate Overlay Set",
+      "description": "Deactivate every opted-in non-condition layer in an Overlay Set.",
+      "fields": {
+        "config_entry_id": {"name": "Overlay Set", "description": "Select the Overlay Set to deactivate."},
+        "overlay_set_id": {"name": "Overlay Set ID", "description": "Qualified ID retained for existing automations."}
+      },
+      "sections": {"legacy_ids": {"name": "Legacy YAML identifiers"}}
+    },
+    "activate_layer": {
+      "name": "Activate layer",
+      "description": "Activate or refresh one configured layer.",
+      "fields": {
+        "layer_entity_id": {"name": "Layer", "description": "Select the layer status entity to activate."},
+        "layer_id": {"name": "Layer reference", "description": "Qualified set.layer ID retained for existing automations."},
+        "duration_override": {"name": "Duration override", "description": "Override the configured duration for this activation."}
+      },
+      "sections": {"legacy_ids": {"name": "Legacy YAML identifiers"}}
+    },
+    "deactivate_layer": {
+      "name": "Deactivate layer",
+      "description": "Deactivate one configured layer.",
+      "fields": {
+        "layer_entity_id": {"name": "Layer", "description": "Select the layer status entity to deactivate."},
+        "layer_id": {"name": "Layer reference", "description": "Qualified set.layer ID retained for existing automations."}
+      },
+      "sections": {"legacy_ids": {"name": "Legacy YAML identifiers"}}
     }
   }
 }

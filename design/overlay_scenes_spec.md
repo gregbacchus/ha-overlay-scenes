@@ -181,17 +181,24 @@ Use HA's `homeassistant.helpers.storage.Store`. Persist: active layer instances 
 ```yaml
 activate_layer:
   fields:
-    layer_id: {required: true, selector: {text}}
+    layer_entity_id: {required: false, selector: {entity}}
+    layer_id: {required: false, selector: {text}}
     duration_override: {required: false, selector: {duration}}
 
 deactivate_layer:
   fields:
-    layer_id: {required: true, selector: {text}}
+    layer_entity_id: {required: false, selector: {entity}}
+    layer_id: {required: false, selector: {text}}
 ```
+
+Exactly one picker-backed field or legacy ID field is required. Set actions use
+the same rule with `config_entry_id` preferred over the retained
+`overlay_set_id`. Picker values are resolved to the existing public qualified
+IDs; the service names and legacy YAML contracts remain stable.
 
 ## Config flow (`config_flow.py`)
 
-Tier 1, form-based (decided — see architecture doc). Use config subentries for repeatable Layer definitions within an Overlay Set config entry. `value` fields that need template support should use HA's template selector, not a plain string field — verify current selector support for this before finalizing the schema (`selector.TemplateSelector` as of recent HA versions, confirm still current).
+Tier 1, form-based (decided — see architecture doc). Use config subentries for repeatable Layer definitions within an Overlay Set config entry. Select entities first, then show a second form whose attribute selector contains `state` and the intersection of the selected entities' currently available attributes. `value` fields that need template support should use HA's template selector, not a plain string field — verify current selector support for this before finalizing the schema (`selector.TemplateSelector` as of recent HA versions, confirm still current).
 
 ## Logging spec
 

@@ -625,6 +625,11 @@ actions below are targeted controls for motion boosts, mutually exclusive
 sources, template refreshes, and other cases where changing the entire set would
 be incorrect.
 
+The automation editor provides an **Overlay Set** picker for set actions and a
+**Layer** entity picker for layer actions. The ID-based YAML shown below remains
+supported so existing automations do not need to be rewritten. In the Layer
+picker, choose the diagnostic sensor whose name ends in `status`.
+
 ### Activate a layer
 
 ```yaml

@@ -20,6 +20,7 @@ from homeassistant.helpers.event import (
     async_track_entity_registry_updated_event,
 )
 
+from .action_targets import exactly_one_reference, layer_reference_from_entity
 from .const import (
     DATA_RUNTIMES,
     DOMAIN,
@@ -37,10 +38,24 @@ from .presentation import layer_title, overlay_set_title, renamed_layer_targets
 from .runtime import OverlayRuntime
 
 ACTIVATE_SCHEMA = vol.Schema(
-    {vol.Required("layer_id"): cv.string, vol.Optional("duration_override"): cv.time_period}
+    {
+        vol.Optional("layer_entity_id"): cv.entity_id,
+        vol.Optional("layer_id"): cv.string,
+        vol.Optional("duration_override"): cv.time_period,
+    }
 )
-DEACTIVATE_SCHEMA = vol.Schema({vol.Required("layer_id"): cv.string})
-SET_ACTION_SCHEMA = vol.Schema({vol.Required("overlay_set_id"): cv.string})
+DEACTIVATE_SCHEMA = vol.Schema(
+    {
+        vol.Optional("layer_entity_id"): cv.entity_id,
+        vol.Optional("layer_id"): cv.string,
+    }
+)
+SET_ACTION_SCHEMA = vol.Schema(
+    {
+        vol.Optional("config_entry_id"): cv.string,
+        vol.Optional("overlay_set_id"): cv.string,
+    }
+)
 
 
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
@@ -66,19 +81,46 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
             raise ValueError(f"Overlay Set id is ambiguous: {set_id}")
         return matches[0]
 
+    def set_runtime_from_call(call: ServiceCall) -> OverlayRuntime:
+        reference, from_picker = exactly_one_reference(
+            call.data.get("config_entry_id"),
+            call.data.get("overlay_set_id"),
+            "Overlay Set",
+            "Overlay Set ID",
+        )
+        if from_picker:
+            runtime = domain_data[DATA_RUNTIMES].get(reference)
+            if runtime is None:
+                raise ValueError("Selected Overlay Set is not loaded")
+            return runtime
+        return find_set_runtime(reference)
+
+    def layer_reference_from_call(call: ServiceCall) -> str:
+        reference, from_picker = exactly_one_reference(
+            call.data.get("layer_entity_id"),
+            call.data.get("layer_id"),
+            "Layer",
+            "Layer reference",
+        )
+        return (
+            layer_reference_from_entity(hass.states.get, reference)
+            if from_picker
+            else reference
+        )
+
     async def activate(call: ServiceCall) -> None:
-        runtime, layer_id = find_layer(call.data["layer_id"])
+        runtime, layer_id = find_layer(layer_reference_from_call(call))
         await runtime.async_activate(layer_id, call.data.get("duration_override"))
 
     async def deactivate(call: ServiceCall) -> None:
-        runtime, layer_id = find_layer(call.data["layer_id"])
+        runtime, layer_id = find_layer(layer_reference_from_call(call))
         await runtime.async_deactivate(layer_id)
 
     async def activate_set(call: ServiceCall) -> None:
-        await find_set_runtime(call.data["overlay_set_id"]).async_activate_set()
+        await set_runtime_from_call(call).async_activate_set()
 
     async def deactivate_set(call: ServiceCall) -> None:
-        await find_set_runtime(call.data["overlay_set_id"]).async_deactivate_set()
+        await set_runtime_from_call(call).async_deactivate_set()
 
     hass.services.async_register(DOMAIN, SERVICE_ACTIVATE_LAYER, activate, schema=ACTIVATE_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_DEACTIVATE_LAYER, deactivate, schema=DEACTIVATE_SCHEMA)

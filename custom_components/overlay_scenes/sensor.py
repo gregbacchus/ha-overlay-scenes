@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
@@ -97,6 +97,9 @@ class CompositeSensor(RuntimeSensor):
 
 class LayerStatusSensor(RuntimeSensor):
     """Expose a layer's activity and lifecycle diagnostics."""
+
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = ["idle", "active"]
 
     def __init__(self, runtime: OverlayRuntime, layer: Layer) -> None:
         super().__init__(runtime)

@@ -130,6 +130,16 @@ Write-through (compositor calls `light.turn_on` / `media_player.volume_set` etc.
 
 Config subentries, not YAML — this follows directly from the Tier 1 decision, since subentries are inherently form/schema-driven. The one consequence worth flagging: `value` fields that need templates (e.g. "clamp to `input_number.night_volume`") will need a template-capable form field (selector, not a plain string) rather than free-form YAML — check `config_flow` selector support covers this before building the schema.
 
+Layer authoring uses two native flow steps. The first selects the layer identity,
+role, and target entities. The second presents an attribute picker containing
+`state` plus only attributes currently shared by every selected entity, followed
+by the layer behavior fields.
+
+Automation actions prefer native pickers: Overlay Set actions select a config
+entry and layer actions select a layer-status entity. The original
+`overlay_set_id` and qualified `layer_id` inputs remain supported for existing
+YAML automations.
+
 ## Eviction scope — decided: same channel only
 
 A new source evicts the previous source on the *same channel* only, not every channel the old source happened to target. A layer targets exactly one attribute, though it may target that attribute on several entities. Eviction is evaluated independently per entity channel, so the registry's exclusivity bookkeeping is keyed at channel granularity, not layer granularity.
