@@ -94,7 +94,7 @@ class ChannelRegistry:
         """Returns (source, modifiers_sorted_by_priority_ascending)."""
 ```
 
-**Eviction is per-channel, not per-layer** (decided). If layer A targets channels {state, brightness} and layer B (a new source) targets {brightness} only, activating B evicts A *only* from the `brightness` channel — A's `state` channel entry is untouched and keeps running on A's original timer. This means `lifecycle.py` needs to track expiry per (layer, channel) pair, not just per layer, when a layer spans multiple channels.
+**Eviction is per-channel, not per-layer** (decided). Every layer targets exactly one attribute but may target several entities. If layer A targets brightness on hallway lights 1 and 2 and layer B targets brightness on light 2 only, activating B evicts A *only* from light 2's brightness channel — A's light 1 channel entry is untouched and keeps running on A's original timer. This means `lifecycle.py` tracks expiry per (layer, channel) pair, not just per layer.
 
 ## Lifecycle (`lifecycle.py`)
 

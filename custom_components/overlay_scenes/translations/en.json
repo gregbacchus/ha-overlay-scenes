@@ -1,7 +1,8 @@
 {
   "title": "Overlay Scenes",
   "config": {
-    "step": {"user": {"title": "Create an Overlay Set", "description": "Layers can be added to this set after setup.", "data": {"name": "Name"}}}
+    "step": {"user": {"title": "Create an Overlay Set", "description": "Layers can be added to this set after setup.", "data": {"name": "Name", "set_id": "Overlay Set ID"}}},
+    "error": {"invalid_id": "Use only lowercase letters, numbers, and underscores."}
   },
   "config_subentries": {
     "layer": {
@@ -11,14 +12,29 @@
           "title": "Add layer",
           "data": {
             "layer_id": "Layer ID", "role": "Role", "entities": "Target entities",
-            "attribute": "Attribute(s), comma-separated", "value": "Value or template", "op": "Operation",
+            "attribute": "Attribute", "value": "Value or template", "op": "Operation",
             "priority": "Priority", "opacity": "Opacity", "lifetime_mode": "Lifetime",
+            "include_in_set_actions": "Include in set actions",
             "duration_seconds": "Duration in seconds", "condition_entity": "Condition entity"
           }
         },
-        "reconfigure": {"title": "Update layer"}
+        "reconfigure": {
+          "title": "Update layer",
+          "data": {
+            "layer_id": "Layer ID", "role": "Role", "entities": "Target entities",
+            "attribute": "Attribute", "value": "Value or template", "op": "Operation",
+            "priority": "Priority", "opacity": "Opacity", "lifetime_mode": "Lifetime",
+            "include_in_set_actions": "Include in set actions",
+            "duration_seconds": "Duration in seconds", "condition_entity": "Condition entity"
+          }
+        }
       },
-      "error": {"duration_required": "A duration is required for duration layers.", "condition_required": "A condition entity is required for while-condition layers."}
+      "error": {
+        "duration_required": "A duration is required for duration layers.",
+        "condition_required": "A condition entity is required for while-condition layers.",
+        "invalid_id": "Use only lowercase letters, numbers, and underscores.",
+        "single_attribute_required": "Enter exactly one attribute. Create another layer for another attribute."
+      }
     }
   }
 }

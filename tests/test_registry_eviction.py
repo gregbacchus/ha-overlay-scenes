@@ -9,13 +9,13 @@ def layer(layer_id: str, channels: list[Channel]) -> Layer:
 
 
 def test_source_eviction_is_per_channel() -> None:
-    state = Channel("light.hall", "state")
-    brightness = Channel("light.hall", "brightness")
+    first_light = Channel("light.hall_1", "brightness")
+    second_light = Channel("light.hall_2", "brightness")
     registry = ChannelRegistry()
-    first = layer("first", [state, brightness])
-    second = layer("second", [brightness])
+    first = layer("first", [first_light, second_light])
+    second = layer("second", [second_light])
     registry.activate(first)
     events = registry.activate(second)
-    assert [(event.evicted.id, event.channel) for event in events] == [("first", brightness)]
-    assert registry.active_layers_for(state)[0] is first
-    assert registry.active_layers_for(brightness)[0] is second
+    assert [(event.evicted.id, event.channel) for event in events] == [("first", second_light)]
+    assert registry.active_layers_for(first_light)[0] is first
+    assert registry.active_layers_for(second_light)[0] is second

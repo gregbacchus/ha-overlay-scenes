@@ -11,6 +11,8 @@ STORAGE_VERSION = 1
 
 SERVICE_ACTIVATE_LAYER = "activate_layer"
 SERVICE_DEACTIVATE_LAYER = "deactivate_layer"
+SERVICE_ACTIVATE_SET = "activate_set"
+SERVICE_DEACTIVATE_SET = "deactivate_set"
 
 DATA_RUNTIMES = "runtimes"
 SUBENTRY_TYPE_LAYER = "layer"
@@ -39,4 +41,3 @@ NUMERIC_OPS = ("override", "add", "clamp_min", "clamp_max", "average")
 BOOLEAN_OPS = ("override", "or", "and", "nand", "nor", "xor", "xnor")
 COLOR_OPS = ("override", "screen", "multiply")
 ALL_OPS = NUMERIC_OPS + BOOLEAN_OPS + COLOR_OPS
-

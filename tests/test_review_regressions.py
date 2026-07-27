@@ -58,7 +58,12 @@ _install_home_assistant_stubs()
 
 from custom_components.overlay_scenes.compositor import apply_op, resolve_channel
 from custom_components.overlay_scenes.lifecycle import LifecycleManager
-from custom_components.overlay_scenes.models import Channel, Layer, LifetimeSpec
+from custom_components.overlay_scenes.models import (
+    Channel,
+    Layer,
+    LifetimeSpec,
+    parse_layer_reference,
+)
 from custom_components.overlay_scenes.registry import ChannelRegistry
 from custom_components.overlay_scenes.runtime import OverlayRuntime
 from custom_components.overlay_scenes.store import (
@@ -101,6 +106,47 @@ class _ConditionHass:
 
 
 class ReviewRegressionTests(unittest.IsolatedAsyncioTestCase):
+    def test_layer_reference_is_namespaced_by_overlay_set(self) -> None:
+        layer = Layer(
+            "boost",
+            "hallway",
+            "modifier",
+            [Channel("light.hall", "brightness")],
+            100,
+        )
+        self.assertEqual(layer.qualified_id, "hallway.boost")
+
+    def test_layer_rejects_multiple_attributes(self) -> None:
+        with self.assertRaisesRegex(ValueError, "exactly one attribute"):
+            Layer(
+                "scene",
+                "hallway",
+                "source",
+                [
+                    Channel("light.hall", "state"),
+                    Channel("light.hall", "brightness"),
+                ],
+                True,
+            )
+        with self.assertRaisesRegex(ValueError, "exactly one attribute"):
+            Layer(
+                "scene",
+                "hallway",
+                "source",
+                [Channel("light.hall", "state,brightness")],
+                True,
+            )
+
+    def test_layer_reference_parser_requires_exact_namespace(self) -> None:
+        self.assertEqual(
+            parse_layer_reference("hallway.boost"),
+            ("hallway", "boost"),
+        )
+        for invalid in ("boost", ".boost", "hallway.", "home.hallway.boost"):
+            with self.subTest(invalid=invalid):
+                with self.assertRaisesRegex(ValueError, "<overlay_set_id>.<layer_id>"):
+                    parse_layer_reference(invalid)
+
     def test_modifier_priority_controls_fold_order(self) -> None:
         channel = Channel("light.hall", "brightness")
         override = Layer(
@@ -188,8 +234,8 @@ class ReviewRegressionTests(unittest.IsolatedAsyncioTestCase):
     def test_restore_schedules_only_the_record_channel(self) -> None:
         hass = _ConditionHass()
         registry = ChannelRegistry()
-        first = Channel("light.hall", "state")
-        second = Channel("light.hall", "brightness")
+        first = Channel("light.hall_1", "brightness")
+        second = Channel("light.hall_2", "brightness")
         configured = Layer(
             "source",
             "set",
@@ -215,8 +261,8 @@ class ReviewRegressionTests(unittest.IsolatedAsyncioTestCase):
     def test_duration_expiry_deactivates_only_its_channel(self) -> None:
         hass = _ConditionHass()
         registry = ChannelRegistry()
-        first = Channel("light.hall", "state")
-        second = Channel("light.hall", "brightness")
+        first = Channel("light.hall_1", "brightness")
+        second = Channel("light.hall_2", "brightness")
         layer = Layer(
             "source",
             "set",
@@ -273,6 +319,7 @@ class ReviewRegressionTests(unittest.IsolatedAsyncioTestCase):
             7,
             0.75,
             LifetimeSpec("duration", timedelta(seconds=30)),
+            False,
         )
         restored = deserialize_layer(serialize_layer(original))
         self.assertEqual(restored.id, original.id)
@@ -282,6 +329,7 @@ class ReviewRegressionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(restored.priority, original.priority)
         self.assertEqual(restored.opacity, original.opacity)
         self.assertEqual(restored.lifetime.duration, original.lifetime.duration)
+        self.assertFalse(restored.include_in_set_actions)
 
     def test_expiry_parser_normalizes_offsets_to_utc(self) -> None:
         self.assertEqual(
@@ -432,18 +480,62 @@ class ReviewRegressionTests(unittest.IsolatedAsyncioTestCase):
         finally:
             store_module.Store = original
 
+    async def test_set_namespace_save_replaces_legacy_entry_namespace(self) -> None:
+        class FakeStore:
+            data = {
+                "active": [
+                    {"layer": {"overlay_set_id": "legacy_entry_id"}},
+                    {"layer": {"overlay_set_id": "another_set"}},
+                ]
+            }
+
+            def __init__(self, *args):
+                pass
+
+            async def async_load(self):
+                return type(self).data
+
+            async def async_save(self, data):
+                type(self).data = data
+
+        original = store_module.Store
+        store_module.Store = FakeStore
+        try:
+            layer_store = store_module.LayerStore(SimpleNamespace(data={}))
+            namespaced = {"layer": {"overlay_set_id": "hallway"}}
+            await layer_store.async_save(
+                "hallway", [namespaced], aliases={"legacy_entry_id"}
+            )
+            self.assertEqual(
+                [
+                    item["layer"]["overlay_set_id"]
+                    for item in FakeStore.data["active"]
+                ],
+                ["another_set", "hallway"],
+            )
+        finally:
+            store_module.Store = original
+
     async def test_runtime_recompute_batches_all_entity_channels(self) -> None:
         state = Channel("light.hall", "state")
         brightness = Channel("light.hall", "brightness")
-        source = Layer(
-            "scene",
+        state_source = Layer(
+            "scene_state",
             "set",
             "source",
-            [state, brightness],
-            {"state": True, "brightness": 80},
+            [state],
+            True,
+        )
+        brightness_source = Layer(
+            "scene_brightness",
+            "set",
+            "source",
+            [brightness],
+            80,
         )
         registry = ChannelRegistry()
-        registry.activate(source)
+        registry.activate(state_source)
+        registry.activate(brightness_source)
 
         class RecordingWriter:
             def __init__(self):
@@ -468,12 +560,19 @@ class ReviewRegressionTests(unittest.IsolatedAsyncioTestCase):
     async def test_single_channel_registry_change_recomputes_full_entity(self) -> None:
         state = Channel("light.hall", "state")
         brightness = Channel("light.hall", "brightness")
-        configured = Layer(
-            "scene",
+        configured_state = Layer(
+            "scene_state",
             "set",
             "source",
-            [state, brightness],
-            {"state": False, "brightness": 0},
+            [state],
+            False,
+        )
+        configured_brightness = Layer(
+            "scene_brightness",
+            "set",
+            "source",
+            [brightness],
+            0,
         )
 
         class RecordingWriter:
@@ -484,7 +583,10 @@ class ReviewRegressionTests(unittest.IsolatedAsyncioTestCase):
                 self.calls.append(values)
 
         runtime = OverlayRuntime.__new__(OverlayRuntime)
-        runtime.layers = {configured.id: configured}
+        runtime.layers = {
+            configured_state.id: configured_state,
+            configured_brightness.id: configured_brightness,
+        }
         runtime.registry = ChannelRegistry()
         runtime._base_values = {state: False, brightness: 0}
         runtime.composites = {}
@@ -501,21 +603,21 @@ class ReviewRegressionTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_source_eviction_cancels_only_evicted_channel_timer(self) -> None:
         hass = _ConditionHass()
-        state = Channel("light.hall", "state")
-        brightness = Channel("light.hall", "brightness")
+        first = Channel("light.hall_1", "brightness")
+        second = Channel("light.hall_2", "brightness")
         original = Layer(
             "sunset",
             "set",
             "source",
-            [state, brightness],
-            {"state": True, "brightness": 100},
+            [first, second],
+            100,
             lifetime=LifetimeSpec("duration", timedelta(minutes=30)),
         )
         replacement = Layer(
             "switch",
             "set",
             "source",
-            [brightness],
+            [second],
             80,
             lifetime=LifetimeSpec("until_trigger"),
         )
@@ -529,14 +631,14 @@ class ReviewRegressionTests(unittest.IsolatedAsyncioTestCase):
         }
         runtime._listeners = []
         await runtime.async_activate(original.id)
-        original_state_timer = runtime.lifecycle._timers[(original.id, state)]
-        original_brightness_timer = runtime.lifecycle._timers[(original.id, brightness)]
+        original_first_timer = runtime.lifecycle._timers[(original.id, first)]
+        original_second_timer = runtime.lifecycle._timers[(original.id, second)]
         await runtime.async_activate(replacement.id)
-        self.assertFalse(original_state_timer.cancelled)
-        self.assertTrue(original_brightness_timer.cancelled)
-        self.assertEqual(runtime.registry.active_layers_for(state)[0].id, original.id)
+        self.assertFalse(original_first_timer.cancelled)
+        self.assertTrue(original_second_timer.cancelled)
+        self.assertEqual(runtime.registry.active_layers_for(first)[0].id, original.id)
         self.assertEqual(
-            runtime.registry.active_layers_for(brightness)[0].id,
+            runtime.registry.active_layers_for(second)[0].id,
             replacement.id,
         )
 
@@ -565,7 +667,7 @@ class ReviewRegressionTests(unittest.IsolatedAsyncioTestCase):
             async def async_load(self):
                 return stored
 
-            async def async_save(self, overlay_set_id, records):
+            async def async_save(self, overlay_set_id, records, **kwargs):
                 stored["active"] = records
 
         service_calls = []
@@ -621,7 +723,7 @@ class ReviewRegressionTests(unittest.IsolatedAsyncioTestCase):
             async def async_load(self):
                 return stored
 
-            async def async_save(self, overlay_set_id, records):
+            async def async_save(self, overlay_set_id, records, **kwargs):
                 stored["active"] = records
 
         states = {
@@ -649,6 +751,63 @@ class ReviewRegressionTests(unittest.IsolatedAsyncioTestCase):
             await runtime.async_stop()
         finally:
             runtime_module.LayerStore = original_store
+
+    async def test_set_actions_only_control_opted_in_non_condition_layers(self) -> None:
+        channel = Channel("light.hall", "brightness")
+        included = Layer("included", "set", "modifier", [channel], 50)
+        excluded = Layer(
+            "excluded",
+            "set",
+            "modifier",
+            [channel],
+            25,
+            include_in_set_actions=False,
+        )
+        conditional = Layer(
+            "conditional",
+            "set",
+            "modifier",
+            [channel],
+            10,
+            lifetime=LifetimeSpec(
+                "while_condition", condition_entity="input_boolean.night"
+            ),
+        )
+        runtime = OverlayRuntime.__new__(OverlayRuntime)
+        runtime.layers = {
+            layer.id: layer for layer in (included, excluded, conditional)
+        }
+        activated = []
+        deactivated = []
+
+        async def activate(layer_id, duration=None):
+            activated.append(layer_id)
+
+        async def deactivate(layer_id, reason="service_call"):
+            deactivated.append(layer_id)
+
+        runtime.async_activate = activate
+        runtime.async_deactivate = deactivate
+        await runtime.async_activate_set()
+        await runtime.async_deactivate_set()
+        self.assertEqual(activated, [included.id])
+        self.assertEqual(deactivated, [included.id])
+
+    async def test_set_activation_rejects_conflicting_sources_before_activation(self) -> None:
+        channel = Channel("light.hall", "state")
+        first = Layer("first", "set", "source", [channel], True)
+        second = Layer("second", "set", "source", [channel], False)
+        runtime = OverlayRuntime.__new__(OverlayRuntime)
+        runtime.layers = {first.id: first, second.id: second}
+        activated = []
+
+        async def activate(layer_id, duration=None):
+            activated.append(layer_id)
+
+        runtime.async_activate = activate
+        with self.assertRaisesRegex(ValueError, "conflicting sources"):
+            await runtime.async_activate_set()
+        self.assertEqual(activated, [])
 
 
 if __name__ == "__main__":

@@ -9,6 +9,14 @@ from typing import Any
 from .const import DEFAULT_OPACITY, DEFAULT_PRIORITY, LifetimeMode, LayerRole
 
 
+def parse_layer_reference(reference: str) -> tuple[str, str]:
+    """Parse an exact ``<overlay_set_id>.<layer_id>`` reference."""
+    set_id, separator, layer_id = reference.partition(".")
+    if not separator or not set_id or not layer_id or "." in layer_id:
+        raise ValueError("Layer references must use <overlay_set_id>.<layer_id>")
+    return set_id, layer_id
+
+
 @dataclass(frozen=True, slots=True, order=True)
 class Channel:
     """A composited entity state or attribute."""
@@ -50,15 +58,24 @@ class Layer:
     priority: int = DEFAULT_PRIORITY
     opacity: float = DEFAULT_OPACITY
     lifetime: LifetimeSpec = field(default_factory=LifetimeSpec)
+    include_in_set_actions: bool = True
+
+    def __post_init__(self) -> None:
+        """Validate the layer's single-attribute contract."""
+        attributes = {channel.attribute for channel in self.channels}
+        if len(attributes) != 1 or any(
+            not attribute.strip() or "," in attribute for attribute in attributes
+        ):
+            raise ValueError("A layer must target exactly one attribute")
+
+    @property
+    def qualified_id(self) -> str:
+        """Return the public, Overlay Set-namespaced layer reference."""
+        return f"{self.overlay_set_id}.{self.id}"
 
     def value_for(self, channel: Channel) -> Any:
-        """Return a channel-specific value when a mapping was configured."""
-        if not isinstance(self.value, dict):
-            return self.value
-        return self.value.get(
-            channel.key,
-            self.value.get(channel.attribute, self.value.get(channel.entity_id)),
-        )
+        """Return the layer value shared by every targeted entity channel."""
+        return self.value
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,4 +93,3 @@ class ChannelState:
 
     source: Layer | None = None
     modifiers: list[Layer] = field(default_factory=list)
-

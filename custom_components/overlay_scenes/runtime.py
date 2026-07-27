@@ -24,9 +24,16 @@ _LOGGER = logging.getLogger(__name__)
 class OverlayRuntime:
     """Coordinate registry, lifecycle, composition and persistence."""
 
-    def __init__(self, hass: HomeAssistant, entry_id: str, layers: dict[str, Layer]) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry_id: str,
+        layers: dict[str, Layer],
+        set_id: str | None = None,
+    ) -> None:
         self.hass = hass
         self.entry_id = entry_id
+        self.set_id = set_id or entry_id
         self.layers = layers
         self.registry = ChannelRegistry(self._registry_changed)
         self.store = LayerStore(hass)
@@ -62,7 +69,10 @@ class OverlayRuntime:
         restored: dict[str, tuple[Layer, datetime | None]] = {}
         now = datetime.now(UTC)
         for record in stored.get("active", []):
-            if record.get("layer", {}).get("overlay_set_id") != self.entry_id:
+            if record.get("layer", {}).get("overlay_set_id") not in {
+                self.set_id,
+                self.entry_id,
+            }:
                 continue
             layer = self.layers.get(record["layer"]["id"])
             if layer is None:
@@ -84,6 +94,7 @@ class OverlayRuntime:
                 priority=layer.priority,
                 opacity=layer.opacity,
                 lifetime=layer.lifetime,
+                include_in_set_actions=layer.include_in_set_actions,
             )
             self.registry.activate(scoped)
             restored[f"{layer.id}|{channel.key}"] = (scoped, expiry)
@@ -130,6 +141,37 @@ class OverlayRuntime:
         self.registry.deactivate(layer_id, reason)
         self._set_status(layer_id, "idle", reason)
         self._schedule_save()
+
+    def _set_action_layers(self) -> list[Layer]:
+        """Return layers controlled by set-level actions."""
+        return [
+            layer
+            for layer in self.layers.values()
+            if layer.include_in_set_actions
+            and str(layer.lifetime.mode) != "while_condition"
+        ]
+
+    async def async_activate_set(self) -> None:
+        """Activate every opted-in, non-condition layer in this Overlay Set."""
+        layers = self._set_action_layers()
+        source_by_channel: dict[Channel, str] = {}
+        for layer in layers:
+            if str(layer.role) != "source":
+                continue
+            for channel in layer.channels:
+                if previous := source_by_channel.get(channel):
+                    raise ValueError(
+                        "Overlay Set has conflicting sources "
+                        f"{previous} and {layer.id} on channel {channel.key}"
+                    )
+                source_by_channel[channel] = layer.id
+        for layer in layers:
+            await self.async_activate(layer.id)
+
+    async def async_deactivate_set(self) -> None:
+        """Deactivate every opted-in, non-condition layer in this Overlay Set."""
+        for layer in self._set_action_layers():
+            await self.async_deactivate(layer.id)
 
     async def async_stop(self) -> None:
         """Stop callbacks and persist state."""
@@ -255,4 +297,4 @@ class OverlayRuntime:
                         base_value=self.base_value(channel),
                     )
                 )
-        await self.store.async_save(self.entry_id, records)
+        await self.store.async_save(self.set_id, records, aliases={self.entry_id})

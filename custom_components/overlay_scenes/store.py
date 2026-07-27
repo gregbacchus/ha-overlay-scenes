@@ -40,15 +40,20 @@ class LayerStore:
         return self._coordinator["data"]
 
     async def async_save(
-        self, overlay_set_id: str, records: list[dict[str, Any]]
+        self,
+        overlay_set_id: str,
+        records: list[dict[str, Any]],
+        *,
+        aliases: set[str] | None = None,
     ) -> None:
         """Persist one set without discarding other Overlay Sets."""
         async with self._coordinator["lock"]:
             current = await self._async_load_locked()
+            replaced_ids = {overlay_set_id, *(aliases or set())}
             retained = [
                 record
                 for record in current.get("active", [])
-                if record.get("layer", {}).get("overlay_set_id") != overlay_set_id
+                if record.get("layer", {}).get("overlay_set_id") not in replaced_ids
             ]
             updated = {"active": retained + records}
             await self._coordinator["store"].async_save(updated)
@@ -82,6 +87,7 @@ def serialize_layer(layer: Layer) -> dict[str, Any]:
         "value": str(layer.value) if hasattr(layer.value, "async_render") else layer.value,
         "op": layer.op,
         "opacity": layer.opacity,
+        "include_in_set_actions": layer.include_in_set_actions,
         "lifetime": {
             "mode": str(layer.lifetime.mode),
             "duration": layer.lifetime.duration.total_seconds() if layer.lifetime.duration else None,
@@ -102,6 +108,7 @@ def deserialize_layer(data: dict[str, Any]) -> Layer:
         value=data["value"],
         op=data.get("op", "override"),
         opacity=data.get("opacity", 1.0),
+        include_in_set_actions=data.get("include_in_set_actions", True),
         lifetime=LifetimeSpec(
             mode=lifetime["mode"],
             duration=timedelta(seconds=lifetime["duration"]) if lifetime.get("duration") else None,

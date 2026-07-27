@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import voluptuous as vol
@@ -12,6 +13,7 @@ from homeassistant.core import callback
 from homeassistant.helpers.selector import (
     EntitySelector,
     EntitySelectorConfig,
+    BooleanSelector,
     NumberSelector,
     NumberSelectorConfig,
     SelectSelector,
@@ -22,7 +24,14 @@ from homeassistant.helpers.selector import (
 
 from .const import ALL_OPS, DOMAIN, SUBENTRY_TYPE_LAYER
 
-SET_SCHEMA = vol.Schema({vol.Required("name"): TextSelector()})
+ID_PATTERN = r"^[a-z0-9_]+$"
+
+SET_SCHEMA = vol.Schema(
+    {
+        vol.Required("name"): TextSelector(),
+        vol.Required("set_id"): TextSelector(),
+    }
+)
 LAYER_SCHEMA = vol.Schema(
     {
         vol.Required("layer_id"): TextSelector(),
@@ -41,6 +50,7 @@ LAYER_SCHEMA = vol.Schema(
         vol.Required("opacity", default=1.0): NumberSelector(
             NumberSelectorConfig(min=0, max=1, step=0.05)
         ),
+        vol.Required("include_in_set_actions", default=True): BooleanSelector(),
         vol.Required("lifetime_mode", default="until_trigger"): SelectSelector(
             SelectSelectorConfig(options=["duration", "until_trigger", "while_condition"])
         ),
@@ -60,7 +70,13 @@ class OverlayScenesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
         """Create the parent Overlay Set entry."""
         if user_input is not None:
-            return self.async_create_entry(title=user_input["name"], data={"name": user_input["name"]})
+            if not re.fullmatch(ID_PATTERN, user_input["set_id"]):
+                return self.async_show_form(
+                    step_id="user", data_schema=SET_SCHEMA, errors={"set_id": "invalid_id"}
+                )
+            await self.async_set_unique_id(user_input["set_id"])
+            self._abort_if_unique_id_configured()
+            return self.async_create_entry(title=user_input["name"], data=user_input)
         return self.async_show_form(step_id="user", data_schema=SET_SCHEMA)
 
     @classmethod
@@ -97,10 +113,14 @@ class LayerSubentryFlowHandler(ConfigSubentryFlow):
     def _validate(user_input: dict[str, Any] | None) -> dict[str, str]:
         if not user_input:
             return {}
+        if not re.fullmatch(ID_PATTERN, user_input["layer_id"]):
+            return {"layer_id": "invalid_id"}
+        attribute = user_input["attribute"].strip()
+        if not attribute or "," in attribute:
+            return {"attribute": "single_attribute_required"}
         mode = user_input["lifetime_mode"]
         if mode == "duration" and not user_input.get("duration_seconds"):
             return {"duration_seconds": "duration_required"}
         if mode == "while_condition" and not user_input.get("condition_entity"):
             return {"condition_entity": "condition_required"}
         return {}
-

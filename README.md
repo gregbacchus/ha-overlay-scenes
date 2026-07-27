@@ -17,6 +17,11 @@ Overlay Scenes resolves the active layers and writes the result directly to the
 target Home Assistant entities. It also creates diagnostic sensors showing the
 resolved values and active layer stack.
 
+> **Breaking configuration change:** layers now accept exactly one attribute,
+> and individual layer actions require `<overlay_set_id>.<layer_id>`. Before
+> upgrading an existing installation, split every comma-separated layer into
+> one layer per attribute and update bare layer IDs in automations.
+
 ## Contents
 
 - [What this integration does](#what-this-integration-does)
@@ -25,6 +30,7 @@ resolved values and active layer stack.
 - [Core concepts](#core-concepts)
 - [Supported entities and channels](#supported-entities-and-channels)
 - [Creating an Overlay Set](#creating-an-overlay-set)
+- [Activating and deactivating Overlay Sets](#activating-and-deactivating-overlay-sets)
 - [Configuring layers](#configuring-layers)
 - [Layer operations](#layer-operations)
 - [Layer lifetimes](#layer-lifetimes)
@@ -102,34 +108,45 @@ Until this integration is listed in the default HACS store:
 
 ## Quick start
 
-This example creates a 60-second brightness boost for one light.
+This example creates a 60-second light scene for one hallway light.
 
 ### 1. Create an Overlay Set
 
 1. Open **Settings → Devices & services**.
 2. Add the **Overlay Scenes** integration.
-3. Name the Overlay Set `Hallway`.
+3. Set **Name** to `Hallway Boost` and **Overlay Set ID** to
+   `hallway_boost`.
 
 An Overlay Set groups related layers. All layers in the set write through to
 their real target entities.
 
-### 2. Add a layer
+### 2. Add two layers
 
-Open the `Hallway` Overlay Scenes entry and add a **Layer** subentry with these
-values:
+Each layer controls exactly one attribute. Open the `Hallway Boost` entry and
+add these two **Layer** subentries. They target the same light and are activated
+together by the set action.
 
 | Field | Value |
 |---|---|
-| Layer ID | `front_door_boost` |
-| Role | `modifier` |
+| Layer ID | `front_door_boost_state` |
+| Role | `source` |
 | Target entities | `light.hallway_1` |
-| Attribute(s) | `brightness` |
-| Value or template | `100` |
-| Operation | `override` |
-| Priority | `20` |
+| Attribute | `state` |
+| Value or template | `true` |
+| Operation | `override` (ignored for sources) |
+| Priority | `0` |
 | Opacity | `1` |
+| Include in set actions | Yes |
 | Lifetime | `duration` |
 | Duration in seconds | `60` |
+
+Create a second layer with the same settings except:
+
+| Field | Value |
+|---|---|
+| Layer ID | `front_door_boost_brightness` |
+| Attribute | `brightness` |
+| Value or template | `100` |
 
 Brightness values are percentages from `0` to `100`.
 
@@ -142,9 +159,9 @@ triggers:
     entity_id: binary_sensor.front_door_motion
     to: "on"
 actions:
-  - action: overlay_scenes.activate_layer
+  - action: overlay_scenes.activate_set
     data:
-      layer_id: front_door_boost
+      overlay_set_id: hallway_boost
 mode: restart
 ```
 
@@ -155,53 +172,63 @@ motion also restarts the automation cleanly.
 
 ### Overlay Sets
 
-An Overlay Set is the top-level integration entry. Use separate sets to group
-layers by purpose or area, for example:
+An Overlay Set is the top-level integration entry and the primary activation
+unit. Use a set to group layers that should normally activate and deactivate
+together, for example:
 
-- `Hallway lighting`
+- `Hallway evening scene`
 - `Whole-house audio`
 - `Office status lights`
 
-Layer IDs used by service calls must be unique across all loaded Overlay Sets.
-If two sets both contain `night_mode`, calling
-`overlay_scenes.activate_layer` with that ID is ambiguous and fails.
+Each set has a stable **Overlay Set ID**, such as `hallway_evening`. Automations
+use this ID rather than the display name.
+
+Set actions control layers whose **Include in set actions** option is enabled.
+While-condition layers are always controlled by their condition and are skipped
+by set actions even when the option is enabled.
+
+An activatable set must not include two source layers targeting the same
+channel. Overlay Scenes rejects the entire activation before changing anything
+if it detects conflicting included sources. Put mutually exclusive sources in
+different sets, or turn off **Include in set actions** and control those sources
+individually.
+
+Layer IDs are local to their Overlay Set. Individual layer actions always use
+the qualified reference `<overlay_set_id>.<layer_id>`. For example,
+`hallway_evening.night_max` and `bedroom_evening.night_max` are distinct layers.
+Set IDs and local layer IDs may contain lowercase letters, numbers, and
+underscores.
 
 Recommended naming:
 
 ```text
-hallway_sunset_on
-hallway_night_max
-hallway_front_door_boost
-audio_quiet_hours
+hallway_evening.sunset_state
+hallway_evening.sunset_brightness
+hallway_evening.night_max
+whole_house_audio.quiet_hours
 ```
 
 ### Channels
 
-A channel is one state or attribute on one entity. A layer may target multiple
-entities and multiple attributes.
+A channel is one state or attribute on one entity. A layer targets exactly one
+attribute, but it may apply that attribute to multiple entities.
 
 If a layer targets:
 
 ```text
 Entities:   light.hallway_1, light.hallway_2
-Attributes: state,brightness
+Attribute:  brightness
 ```
 
-it occupies four independent channels:
+it occupies two independent channels:
 
 ```text
-light.hallway_1.state
 light.hallway_1.brightness
-light.hallway_2.state
 light.hallway_2.brightness
 ```
 
-Enter multiple attributes as a comma-separated list in the **Attribute(s)**
-field:
-
-```text
-state,brightness
-```
+To control both `state` and `brightness`, create two layers in the same Overlay
+Set. This keeps each value, operation, lifetime, and diagnostic status explicit.
 
 ### Sources
 
@@ -217,8 +244,8 @@ Activating a new source:
 This eviction is deliberately per channel. For example:
 
 ```text
-source_a targets: state + brightness
-source_b targets: brightness only
+source_a targets: hallway_1 + hallway_2 brightness
+source_b targets: hallway_2 brightness only
 ```
 
 Activating `source_b` evicts `source_a` from brightness, but `source_a` remains
@@ -288,12 +315,74 @@ fail and are logged by Home Assistant.
 1. Open **Settings → Devices & services**.
 2. Select **Add integration**.
 3. Search for **Overlay Scenes**.
-4. Enter a descriptive name.
-5. Open the newly created integration entry.
-6. Use the entry's subentry controls to add one or more Layers.
+4. Enter a descriptive display name.
+5. Enter a stable Overlay Set ID using a concise automation-friendly value such
+   as `hallway_evening`.
+6. Open the newly created integration entry.
+7. Use the entry's subentry controls to add one or more Layers.
 
 Overlay Scenes configuration is form-based. It is not configured through
 `configuration.yaml`.
+
+## Activating and deactivating Overlay Sets
+
+Set actions are the recommended way to control a complete scene.
+
+### Activate a set
+
+```yaml
+- action: overlay_scenes.activate_set
+  data:
+    overlay_set_id: hallway_evening
+```
+
+Activation applies every layer that:
+
+1. Has **Include in set actions** enabled.
+2. Is not a `while_condition` layer.
+
+Duration layers start or refresh their timers. Until-trigger layers remain
+active until the set or layer is deactivated or a newer source evicts them.
+
+### Deactivate a set
+
+```yaml
+- action: overlay_scenes.deactivate_set
+  data:
+    overlay_set_id: hallway_evening
+```
+
+Deactivation removes every opted-in non-condition layer from all channels it
+still occupies. While-condition layers continue following their condition.
+
+### Complete set-controlled automation
+
+```yaml
+alias: Hallway - control evening Overlay Set
+triggers:
+  - trigger: sun
+    event: sunset
+    id: activate
+  - trigger: time
+    at: "22:00:00"
+    id: deactivate
+actions:
+  - choose:
+      - conditions: "{{ trigger.id == 'activate' }}"
+        sequence:
+          - action: overlay_scenes.activate_set
+            data:
+              overlay_set_id: hallway_evening
+      - conditions: "{{ trigger.id == 'deactivate' }}"
+        sequence:
+          - action: overlay_scenes.deactivate_set
+            data:
+              overlay_set_id: hallway_evening
+mode: restart
+```
+
+Use individual layer actions only when an automation needs to control one layer
+without changing the rest of its set.
 
 ## Configuring layers
 
@@ -301,19 +390,20 @@ Overlay Scenes configuration is form-based. It is not configured through
 
 | Field | Required | Meaning |
 |---|---:|---|
-| Layer ID | Yes | Stable ID used by `activate_layer` and `deactivate_layer`. Must be globally unique across loaded sets. |
+| Layer ID | Yes | Stable local ID. Actions address it as `<overlay_set_id>.<layer_id>`. Must be unique within its set. |
 | Role | Yes | `source` or `modifier`. |
 | Target entities | Yes | One or more supported Home Assistant entities. |
-| Attribute(s) | Yes | One attribute or a comma-separated list such as `state,brightness`. |
-| Value or template | Yes | A JSON literal, scalar value, or Home Assistant template. |
+| Attribute | Yes | Exactly one attribute, such as `state`, `brightness`, or `volume_level`. |
+| Value or template | Yes | The scalar, list, or Home Assistant template applied to that attribute. |
 | Operation | Yes | Modifier operation. Ignored for source layers. |
 | Priority | Yes | Modifier fold order. Lower values run first. |
 | Opacity | Yes | `0`–`1`; used by numeric and RGB `override`. |
+| Include in set actions | Yes | Whether `activate_set` and `deactivate_set` control this layer. Condition layers are always skipped. |
 | Lifetime | Yes | `duration`, `until_trigger`, or `while_condition`. |
 | Duration in seconds | For duration | Default lifetime after activation. |
 | Condition entity | For while-condition | Entity whose truthiness controls the layer. |
 
-### Single-channel values
+### Layer values
 
 For one attribute, enter the value directly:
 
@@ -332,49 +422,13 @@ Attribute: rgb_color
 Value:     [255, 120, 20]
 ```
 
-### Multi-attribute values
+The value is applied to every selected entity. For example, a brightness layer
+with two target lights and value `60` supplies 60% for both lights. If two
+entities need different values, create separate layers.
 
-When one layer targets several attributes, enter a JSON object keyed by
-attribute:
-
-```text
-Attribute(s): state,brightness
-```
-
-```json
-{
-  "state": true,
-  "brightness": 100
-}
-```
-
-You can also target a particular entity or channel with more specific keys.
-Value lookup uses this order:
-
-1. Full channel key: `entity_id|attribute`
-2. Attribute name: `brightness`
-3. Entity ID: `light.hallway_1`
-
-Example:
-
-```json
-{
-  "light.hallway_1|brightness": 100,
-  "light.hallway_2|brightness": 70,
-  "state": true
-}
-```
-
-For complex behavior, separate layers are often clearer than one large
-multi-attribute layer—especially when state and brightness need different
-modifier operations.
-
-A scalar value broadcasts to every channel targeted by the layer. For a
-mapping, every targeted channel must match a full channel key, attribute key, or
-entity-ID key. An entity-ID match is used as the final value; it is not treated
-as a nested mapping. If no key matches, the layer resolves `null` for that
-channel, which can prevent a write or make the selected operation invalid.
-Always provide a value for every targeted channel.
+Lists remain valid values for a single list-valued attribute such as
+`rgb_color`. To control another attribute, create another layer;
+comma-separated attributes and attribute-keyed value objects are not supported.
 
 ## Layer operations
 
@@ -455,7 +509,7 @@ An automation may override the configured duration for one activation:
 ```yaml
 - action: overlay_scenes.activate_layer
   data:
-    layer_id: front_door_boost
+    layer_id: hallway_boost.front_door_boost_brightness
     duration_override: "00:02:30"
 ```
 
@@ -519,6 +573,7 @@ Configure that layer as:
 | Value or template | Template above |
 | Priority | `10` |
 | Opacity | `1` |
+| Include in set actions | Yes |
 | Lifetime | `until_trigger` |
 
 Templates are rendered when the affected channel recomputes. Recomputation
@@ -542,24 +597,27 @@ triggers:
 actions:
   - action: overlay_scenes.activate_layer
     data:
-      layer_id: audio_night_volume_max
+      layer_id: whole_house_audio.audio_night_volume_max
 mode: restart
 ```
 
 Rendered template output uses Home Assistant's parsed-result behavior. A
 template returning `0.25` becomes a number, and a template returning a list such
-as `[255, 100, 20]` can be used for `rgb_color`. For multi-attribute layers,
-prefer a literal JSON mapping; template-generated mappings are harder to
-validate and troubleshoot.
+as `[255, 100, 20]` can be used for `rgb_color`.
 
 ## Calling Overlay Scenes from automations
+
+Prefer `activate_set` and `deactivate_set` for normal scene control. The layer
+actions below are targeted controls for motion boosts, mutually exclusive
+sources, template refreshes, and other cases where changing the entire set would
+be incorrect.
 
 ### Activate a layer
 
 ```yaml
 - action: overlay_scenes.activate_layer
   data:
-    layer_id: hallway_sunset_on
+    layer_id: hallway_automation.hallway_sunset_state
 ```
 
 For duration layers, activating again resets the timer.
@@ -569,7 +627,7 @@ For duration layers, activating again resets the timer.
 ```yaml
 - action: overlay_scenes.activate_layer
   data:
-    layer_id: hallway_motion_boost
+    layer_id: hallway_automation.hallway_motion_boost
     duration_override: "00:05:00"
 ```
 
@@ -578,7 +636,7 @@ For duration layers, activating again resets the timer.
 ```yaml
 - action: overlay_scenes.deactivate_layer
   data:
-    layer_id: hallway_sunset_on
+    layer_id: hallway_automation.hallway_sunset_state
 ```
 
 Deactivation removes that layer from every channel it still occupies.
@@ -588,6 +646,12 @@ Deactivation removes that layer from every channel it still occupies.
 This example implements the walkthrough from the design: sunset lighting,
 night-time brightness limiting, motion boosts, night lights, and physical
 switch control.
+
+Create an Overlay Set named `Hallway automation` with Overlay Set ID
+`hallway_automation`. This is an advanced event-driven set: its mutually
+exclusive sources and motion layers are controlled individually, so the tables
+below turn off **Include in set actions**. For ordinary scenes, prefer separate
+sets whose compatible layers can be activated together with `activate_set`.
 
 Assumed entities:
 
@@ -601,19 +665,23 @@ switch.hallway_scene_control
 sun.sun
 ```
 
-### Layer 1: sunset source
+### Layers 1 and 2: sunset sources
 
 | Field | Value |
 |---|---|
-| Layer ID | `hallway_sunset_on` |
+| Layer ID | `hallway_sunset_state` |
 | Role | `source` |
 | Target entities | `light.hallway_1`, `light.hallway_2` |
-| Attribute(s) | `state,brightness` |
-| Value | `{"state": true, "brightness": 100}` |
+| Attribute | `state` |
+| Value | `true` |
 | Operation | `override` (ignored for sources) |
 | Priority | `0` |
 | Opacity | `1` |
+| Include in set actions | No |
 | Lifetime | `until_trigger` |
+
+Create `hallway_sunset_brightness` with the same settings, changing
+**Attribute** to `brightness` and **Value** to `100`.
 
 Activate at sunset and deactivate at 22:00:
 
@@ -625,7 +693,10 @@ triggers:
 actions:
   - action: overlay_scenes.activate_layer
     data:
-      layer_id: hallway_sunset_on
+      layer_id: hallway_automation.hallway_sunset_state
+  - action: overlay_scenes.activate_layer
+    data:
+      layer_id: hallway_automation.hallway_sunset_brightness
 mode: single
 ```
 
@@ -637,7 +708,10 @@ triggers:
 actions:
   - action: overlay_scenes.deactivate_layer
     data:
-      layer_id: hallway_sunset_on
+      layer_id: hallway_automation.hallway_sunset_state
+  - action: overlay_scenes.deactivate_layer
+    data:
+      layer_id: hallway_automation.hallway_sunset_brightness
 mode: single
 ```
 
@@ -653,6 +727,7 @@ mode: single
 | Operation | `clamp_max` |
 | Priority | `10` |
 | Opacity | `1` |
+| Include in set actions | No; condition-controlled |
 | Lifetime | `while_condition` |
 | Condition entity | `input_boolean.night_mode` |
 
@@ -696,6 +771,7 @@ The Overlay Scenes layer follows this helper automatically.
 | Operation | `override` |
 | Priority | `20` |
 | Opacity | `1` |
+| Include in set actions | No |
 | Lifetime | `duration` |
 | Duration in seconds | `60` |
 
@@ -712,7 +788,7 @@ conditions:
 actions:
   - action: overlay_scenes.activate_layer
     data:
-      layer_id: hallway_front_door_boost
+      layer_id: hallway_automation.hallway_front_door_boost
 mode: restart
 ```
 
@@ -735,6 +811,7 @@ State layer:
 | Operation | `or` |
 | Priority | `10` |
 | Opacity | `1` |
+| Include in set actions | No |
 | Lifetime | `duration` |
 | Duration in seconds | `120` |
 
@@ -750,6 +827,7 @@ Brightness layer:
 | Operation | `clamp_min` |
 | Priority | `5` |
 | Opacity | `1` |
+| Include in set actions | No |
 | Lifetime | `duration` |
 | Duration in seconds | `120` |
 
@@ -768,43 +846,30 @@ conditions:
 actions:
   - action: overlay_scenes.activate_layer
     data:
-      layer_id: hallway_motion_state
+      layer_id: hallway_automation.hallway_motion_state
   - action: overlay_scenes.activate_layer
     data:
-      layer_id: hallway_motion_floor
+      layer_id: hallway_automation.hallway_motion_floor
 mode: restart
 ```
 
 When no source is active and the lights are off, these layers turn them on at
 10%. If the lights are already on at 50%, they make no visible change.
 
-### Layer 6: physical switch on
+### Physical switch sources
+
+Create four single-attribute source layers. They share the target entities,
+`override` source operation, priority `0`, opacity `1`, **Include in set
+actions** disabled, and an `until_trigger` lifetime.
 
 | Field | Value |
 |---|---|
-| Layer ID | `hallway_switch_on` |
-| Role | `source` |
-| Target entities | `light.hallway_1`, `light.hallway_2` |
-| Attribute(s) | `state,brightness` |
-| Value | `{"state": true, "brightness": 100}` |
-| Operation | `override` (ignored for sources) |
-| Priority | `0` |
-| Opacity | `1` |
-| Lifetime | `until_trigger` |
-
-### Layer 7: physical switch off
-
-| Field | Value |
-|---|---|
-| Layer ID | `hallway_switch_off` |
-| Role | `source` |
-| Target entities | `light.hallway_1`, `light.hallway_2` |
-| Attribute(s) | `state,brightness` |
-| Value | `{"state": false, "brightness": 0}` |
-| Operation | `override` (ignored for sources) |
-| Priority | `0` |
-| Opacity | `1` |
-| Lifetime | `until_trigger` |
+| Layer ID | Attribute | Value |
+|---|---|---|
+| `hallway_switch_on_state` | `state` | `true` |
+| `hallway_switch_on_brightness` | `brightness` | `100` |
+| `hallway_switch_off_state` | `state` | `false` |
+| `hallway_switch_off_brightness` | `brightness` | `0` |
 
 Activate the corresponding source when the control switch changes:
 
@@ -825,20 +890,26 @@ actions:
         sequence:
           - action: overlay_scenes.activate_layer
             data:
-              layer_id: hallway_switch_on
+              layer_id: hallway_automation.hallway_switch_on_state
+          - action: overlay_scenes.activate_layer
+            data:
+              layer_id: hallway_automation.hallway_switch_on_brightness
       - conditions: "{{ trigger.id == 'off' }}"
         sequence:
           - action: overlay_scenes.activate_layer
             data:
-              layer_id: hallway_switch_off
+              layer_id: hallway_automation.hallway_switch_off_state
+          - action: overlay_scenes.activate_layer
+            data:
+              layer_id: hallway_automation.hallway_switch_off_brightness
 mode: restart
 ```
 
-`hallway_switch_on` evicts the sunset source on overlapping channels. The
+The switch-on layers evict the sunset sources on overlapping channels. The
 separate 22:00 automation may still call `deactivate_layer`, but that later call
 is harmless because the sunset source no longer occupies those channels. The
 night cap still applies, so the resolved brightness is 50% while night mode is
-active. `hallway_switch_off` then becomes the explicit off source and remains
+active. The switch-off layers then become the explicit off sources and remain
 off until another source replaces it.
 
 ## Additional examples
@@ -857,6 +928,7 @@ Layer configuration:
 | Operation | `clamp_max` |
 | Priority | `10` |
 | Opacity | `1` |
+| Include in set actions | No; condition-controlled |
 | Lifetime | `while_condition` |
 | Condition entity | `input_boolean.quiet_hours` |
 
@@ -878,13 +950,14 @@ To force speakers toward 10% during an announcement:
 | Operation | `override` |
 | Priority | `30` |
 | Opacity | `1` |
+| Include in set actions | Yes |
 | Lifetime | `duration` |
 | Duration in seconds | `30` |
 
 ```yaml
 - action: overlay_scenes.activate_layer
   data:
-    layer_id: audio_announcement_duck
+    layer_id: whole_house_audio.audio_announcement_duck
 ```
 
 ### Warm evening color tint
@@ -901,6 +974,7 @@ Layer configuration:
 | Operation | `multiply` |
 | Priority | `10` |
 | Opacity | `1` |
+| Include in set actions | No; condition-controlled |
 | Lifetime | `while_condition` |
 | Condition entity | `input_boolean.evening_mode` |
 
@@ -935,6 +1009,7 @@ Composite sensor attributes include:
 
 | Attribute | Meaning |
 |---|---|
+| `overlay_set_id` | Stable ID used by set-level actions |
 | `entity_id` | Real target entity |
 | `attribute` | Composited state or attribute |
 | `source_layer_id` | Current source, or null |
@@ -953,6 +1028,7 @@ Its state is `idle` or `active`. Attributes include:
 
 | Attribute | Meaning |
 |---|---|
+| `overlay_set_id` | Stable ID used by set-level actions |
 | `role` | Source or modifier |
 | `priority` | Modifier priority |
 | `channels` | All configured channel keys |
@@ -1019,10 +1095,25 @@ Check that:
 2. The parent Overlay Set is loaded.
 3. The automation uses the exact Layer ID, not the display name.
 
-### A service says the layer ID is ambiguous
+### A service says the Overlay Set is unknown
 
-Two loaded Overlay Sets contain the same Layer ID. Rename one layer so every ID
-is globally unique.
+Check that the automation uses the stable Overlay Set ID configured when the
+integration entry was created, not its display name. The ID is also exposed as
+`overlay_set_id` on composite and layer-status sensors.
+
+### Set activation reports conflicting sources
+
+Two opted-in source layers target the same channel. Overlay Scenes rejects the
+activation before changing the set. Either move the mutually exclusive sources
+to different Overlay Sets or disable **Include in set actions** and activate
+those layers individually.
+
+### A service rejects a layer reference
+
+Use the full `<overlay_set_id>.<layer_id>` reference, for example
+`hallway_automation.hallway_motion_floor`. A bare local ID such as
+`hallway_motion_floor` is intentionally rejected. Check that both IDs use only
+lowercase letters, numbers, and underscores.
 
 ### A layer activates but the value is unexpected
 
@@ -1033,7 +1124,7 @@ Inspect the composite sensor attributes:
 3. Verify priorities—the highest priority runs last.
 4. Confirm brightness uses `0`–`100`, not `0`–`255`.
 5. Confirm volume uses `0.0`–`1.0`.
-6. Confirm multi-attribute values are valid JSON objects.
+6. Confirm the layer has exactly one attribute and its value has the right type.
 
 ### A duration layer does not last as long as expected
 
@@ -1080,7 +1171,10 @@ Scenes does not currently dispatch arbitrary Home Assistant domains.
   are supported.
 - Layer configuration is UI/subentry-based; YAML integration configuration is
   not supported.
-- Layer IDs must be unique across all loaded Overlay Sets.
+- Each layer targets exactly one attribute. Use multiple layers in one set for
+  scene behavior that controls several attributes.
+- Layer IDs must be unique within their Overlay Set; the same local ID may be
+  reused in another set because actions use qualified references.
 - Template dependency changes do not automatically trigger recomposition.
 - There is no custom Lovelace card or sidebar panel yet. Use the generated
   diagnostic sensors with standard Home Assistant cards.

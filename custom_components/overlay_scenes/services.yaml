@@ -1,9 +1,29 @@
+activate_set:
+  name: Activate Overlay Set
+  description: Activate every opted-in non-condition layer in an Overlay Set.
+  fields:
+    overlay_set_id:
+      name: Overlay Set ID
+      required: true
+      selector:
+        text:
+
+deactivate_set:
+  name: Deactivate Overlay Set
+  description: Deactivate every opted-in non-condition layer in an Overlay Set.
+  fields:
+    overlay_set_id:
+      name: Overlay Set ID
+      required: true
+      selector:
+        text:
+
 activate_layer:
   name: Activate layer
-  description: Activate or refresh a configured overlay layer.
+  description: Activate or refresh one configured layer using its Overlay Set-qualified reference.
   fields:
     layer_id:
-      name: Layer ID
+      name: Layer reference (set.layer)
       required: true
       selector:
         text:
@@ -15,10 +35,10 @@ activate_layer:
 
 deactivate_layer:
   name: Deactivate layer
-  description: Deactivate a configured overlay layer.
+  description: Deactivate one configured layer using its Overlay Set-qualified reference.
   fields:
     layer_id:
-      name: Layer ID
+      name: Layer reference (set.layer)
       required: true
       selector:
         text:

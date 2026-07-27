@@ -67,10 +67,11 @@ class CompositeSensor(RuntimeSensor):
     def extra_state_attributes(self) -> dict[str, Any]:
         source, modifiers = self.runtime.registry.active_layers_for(self.channel)
         return {
+            "overlay_set_id": self.runtime.set_id,
             "entity_id": self.channel.entity_id,
             "attribute": self.channel.attribute,
-            "source_layer_id": source.id if source else None,
-            "modifier_layer_ids": [layer.id for layer in modifiers],
+            "source_layer_id": source.qualified_id if source else None,
+            "modifier_layer_ids": [layer.qualified_id for layer in modifiers],
             "resolved_value": self.runtime.composites.get(self.channel),
         }
 
@@ -92,6 +93,8 @@ class LayerStatusSensor(RuntimeSensor):
     def extra_state_attributes(self) -> dict[str, Any]:
         expiry = self.runtime.lifecycle.expires_at(self.layer.id)
         return {
+            "overlay_set_id": self.runtime.set_id,
+            "layer_id": self.layer.qualified_id,
             "role": str(self.layer.role),
             "priority": self.layer.priority,
             "channels": [channel.key for channel in self.layer.channels],
