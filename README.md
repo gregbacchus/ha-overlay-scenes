@@ -405,7 +405,7 @@ without changing the rest of its set.
 | Role | Yes | `source` or `modifier`. |
 | Target entities | Yes | One or more supported Home Assistant entities. |
 | Attribute | Yes | Exactly one attribute, such as `state`, `brightness`, or `volume_level`. |
-| Value or template | Yes | The scalar, list, or Home Assistant template applied to that attribute. |
+| Value or template | Yes | The literal or Home Assistant template applied to that attribute. The form shows the expected type, range, and an example after the attribute is selected. |
 | Operation | Yes | Modifier operation. Ignored for source layers. |
 | Priority | Yes | Modifier fold order. Lower values run first. |
 | Opacity | Yes | `0`–`1`; used by numeric and RGB `override`. |

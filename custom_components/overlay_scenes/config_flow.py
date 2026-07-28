@@ -23,9 +23,13 @@ from homeassistant.helpers.selector import (
     TextSelector,
 )
 
-from .const import ALL_OPS, DOMAIN, SUBENTRY_TYPE_LAYER
+from .const import DOMAIN, SUBENTRY_TYPE_LAYER
 from .ha_presentation import layer_target_names
-from .pickers import common_entity_attributes
+from .pickers import (
+    attribute_value_help,
+    common_entity_attributes,
+    operations_for_attribute,
+)
 from .presentation import layer_title, overlay_set_title
 
 ID_PATTERN = r"^[a-z0-9_]+$"
@@ -47,16 +51,24 @@ LAYER_TARGET_SCHEMA = vol.Schema(
 )
 
 
-def layer_details_schema(attributes: list[str]) -> vol.Schema:
-    """Build the layer details form from verified common attributes."""
+def layer_attribute_schema(attributes: list[str]) -> vol.Schema:
+    """Build the common-attribute selection form."""
     return vol.Schema(
         {
             vol.Required("attribute", default="state"): SelectSelector(
                 SelectSelectorConfig(options=attributes)
             ),
+        }
+    )
+
+
+def layer_behavior_schema(attribute: str) -> vol.Schema:
+    """Build behavior fields appropriate for the selected attribute."""
+    return vol.Schema(
+        {
             vol.Required("value"): TemplateSelector(),
             vol.Required("op", default="override"): SelectSelector(
-                SelectSelectorConfig(options=list(ALL_OPS))
+                SelectSelectorConfig(options=list(operations_for_attribute(attribute)))
             ),
             vol.Required("priority", default=0): NumberSelector(
                 NumberSelectorConfig(min=-10000, max=10000, step=1)
@@ -109,6 +121,7 @@ class LayerSubentryFlowHandler(ConfigSubentryFlow):
     """Create and reconfigure layers."""
 
     _target_input: dict[str, Any] | None = None
+    _attribute_input: dict[str, Any] | None = None
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
         """Choose the identity and target entities for a new layer."""
@@ -125,25 +138,42 @@ class LayerSubentryFlowHandler(ConfigSubentryFlow):
         )
 
     async def async_step_details(self, user_input: dict[str, Any] | None = None):
-        """Choose a common target attribute and layer behavior."""
+        """Choose one attribute shared by every target entity."""
         if self._target_input is None:
             return await self.async_step_user()
-        errors = self._validate_details(user_input)
+        if user_input is not None:
+            self._attribute_input = user_input
+            return await self.async_step_behavior()
+        attributes = common_entity_attributes(
+            self.hass.states.get, self._target_input["entities"]
+        )
+        return self.async_show_form(
+            step_id="details",
+            data_schema=layer_attribute_schema(attributes),
+        )
+
+    async def async_step_behavior(self, user_input: dict[str, Any] | None = None):
+        """Configure value, operation, priority, and lifetime."""
+        if self._target_input is None or self._attribute_input is None:
+            return await self.async_step_user()
+        errors = self._validate_behavior(user_input)
         if user_input is not None and not errors:
-            data = {**self._target_input, **user_input}
+            data = {**self._target_input, **self._attribute_input, **user_input}
             entry = self._get_entry()
             set_id = entry.data["set_id"]
             return self.async_create_entry(
                 title=layer_title(set_id, data, layer_target_names(self.hass, data)),
                 data=data,
             )
-        attributes = common_entity_attributes(
-            self.hass.states.get, self._target_input["entities"]
-        )
+        attribute = self._attribute_input["attribute"]
         return self.async_show_form(
-            step_id="details",
-            data_schema=layer_details_schema(attributes),
+            step_id="behavior",
+            data_schema=layer_behavior_schema(attribute),
             errors=errors,
+            description_placeholders={
+                "attribute_name": attribute.replace("_", " ").capitalize(),
+                "value_help": attribute_value_help(attribute),
+            },
         )
 
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None):
@@ -171,13 +201,36 @@ class LayerSubentryFlowHandler(ConfigSubentryFlow):
     async def async_step_reconfigure_details(
         self, user_input: dict[str, Any] | None = None
     ):
-        """Choose updated common attribute and layer behavior."""
+        """Choose an updated common attribute."""
         subentry = self._get_reconfigure_subentry()
         if self._target_input is None:
             return await self.async_step_reconfigure()
-        errors = self._validate_details(user_input)
+        if user_input is not None:
+            self._attribute_input = user_input
+            return await self.async_step_reconfigure_behavior()
+        attributes = common_entity_attributes(
+            self.hass.states.get, self._target_input["entities"]
+        )
+        configured_attribute = subentry.data["attribute"]
+        if configured_attribute not in attributes:
+            attributes.append(configured_attribute)
+        schema = self.add_suggested_values_to_schema(
+            layer_attribute_schema(attributes), subentry.data
+        )
+        return self.async_show_form(
+            step_id="reconfigure_details", data_schema=schema
+        )
+
+    async def async_step_reconfigure_behavior(
+        self, user_input: dict[str, Any] | None = None
+    ):
+        """Configure updated value, operation, priority, and lifetime."""
+        subentry = self._get_reconfigure_subentry()
+        if self._target_input is None or self._attribute_input is None:
+            return await self.async_step_reconfigure()
+        errors = self._validate_behavior(user_input)
         if user_input is not None and not errors:
-            data = {**self._target_input, **user_input}
+            data = {**self._target_input, **self._attribute_input, **user_input}
             return self.async_update_and_abort(
                 self._get_entry(),
                 subentry,
@@ -188,21 +241,22 @@ class LayerSubentryFlowHandler(ConfigSubentryFlow):
                     layer_target_names(self.hass, data),
                 ),
             )
-        attributes = common_entity_attributes(
-            self.hass.states.get, self._target_input["entities"]
-        )
-        configured_attribute = subentry.data["attribute"]
-        if configured_attribute not in attributes:
-            attributes.append(configured_attribute)
+        attribute = self._attribute_input["attribute"]
         schema = self.add_suggested_values_to_schema(
-            layer_details_schema(attributes), subentry.data
+            layer_behavior_schema(attribute), subentry.data
         )
         return self.async_show_form(
-            step_id="reconfigure_details", data_schema=schema, errors=errors
+            step_id="reconfigure_behavior",
+            data_schema=schema,
+            errors=errors,
+            description_placeholders={
+                "attribute_name": attribute.replace("_", " ").capitalize(),
+                "value_help": attribute_value_help(attribute),
+            },
         )
 
     @staticmethod
-    def _validate_details(user_input: dict[str, Any] | None) -> dict[str, str]:
+    def _validate_behavior(user_input: dict[str, Any] | None) -> dict[str, str]:
         if not user_input:
             return {}
         mode = user_input["lifetime_mode"]

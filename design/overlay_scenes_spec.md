@@ -195,7 +195,7 @@ qualified ID. Layer-status display names include their Overlay Set name.
 
 ## Config flow (`config_flow.py`)
 
-Tier 1, form-based (decided — see architecture doc). Use config subentries for repeatable Layer definitions within an Overlay Set config entry. Select entities first, then show a second form whose attribute selector contains `state` and the intersection of the selected entities' currently available attributes. `value` fields that need template support should use HA's template selector, not a plain string field — verify current selector support for this before finalizing the schema (`selector.TemplateSelector` as of recent HA versions, confirm still current).
+Tier 1, form-based (decided — see architecture doc). Use config subentries for repeatable Layer definitions within an Overlay Set config entry. Select entities first, then show a form whose attribute selector contains only the controllable intersection of the selected entities' currently available attributes. After selecting the attribute, show a final behavior form with attribute-specific value guidance and only compatible operations. `value` fields support Home Assistant templates through `selector.TemplateSelector`; templates must resolve to the same type and range as literal values.
 
 ## Logging spec
 

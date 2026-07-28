@@ -5,11 +5,39 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from typing import Any
 
+from .const import BOOLEAN_OPS, COLOR_OPS, NUMERIC_OPS
+
 SUPPORTED_ATTRIBUTES = {
     "light": {"state", "brightness", "rgb_color"},
     "switch": {"state"},
     "media_player": {"volume_level"},
 }
+
+VALUE_HELP = {
+    "state": "Enter true or false, or a template returning a boolean.",
+    "brightness": "Enter a percentage from 0 to 100, or a template returning that number.",
+    "rgb_color": "Enter an RGB list such as [255, 100, 20], or a template returning one.",
+    "volume_level": "Enter a number from 0.0 to 1.0, or a template returning that number.",
+}
+
+
+def attribute_value_help(attribute: str) -> str:
+    """Return concise value guidance for a controllable attribute."""
+    try:
+        return VALUE_HELP[attribute]
+    except KeyError as error:
+        raise ValueError(f"Unsupported Overlay Scenes attribute: {attribute}") from error
+
+
+def operations_for_attribute(attribute: str) -> tuple[str, ...]:
+    """Return only operations compatible with an attribute's value type."""
+    if attribute == "state":
+        return BOOLEAN_OPS
+    if attribute == "rgb_color":
+        return COLOR_OPS
+    if attribute in {"brightness", "volume_level"}:
+        return NUMERIC_OPS
+    raise ValueError(f"Unsupported Overlay Scenes attribute: {attribute}")
 
 
 def normalize_entity_ids(value: str | Iterable[str]) -> list[str]:

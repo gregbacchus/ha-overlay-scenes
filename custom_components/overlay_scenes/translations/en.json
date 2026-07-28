@@ -25,14 +25,20 @@
           }
         },
         "details": {
-          "title": "Configure layer",
-          "description": "The attribute picker contains attributes currently shared by every selected entity.",
+          "title": "Choose an attribute",
+          "description": "The picker contains controllable attributes currently shared by every selected entity.",
+          "data": {"attribute": "Attribute"}
+        },
+        "behavior": {
+          "title": "Configure layer behavior",
+          "description": "{attribute_name}: {value_help}",
           "data": {
-            "attribute": "Attribute", "value": "Value or template", "op": "Operation",
+            "value": "Value or template", "op": "Operation",
             "priority": "Priority", "opacity": "Opacity", "lifetime_mode": "Lifetime",
             "include_in_set_actions": "Include in set actions",
             "duration_seconds": "Duration", "condition_entity": "Condition entity"
-          }
+          },
+          "data_description": {"value": "{value_help}"}
         },
         "reconfigure": {
           "title": "Update layer targets",
@@ -41,14 +47,20 @@
           }
         },
         "reconfigure_details": {
-          "title": "Update layer configuration",
-          "description": "The attribute picker contains attributes currently shared by every selected entity.",
+          "title": "Update layer attribute",
+          "description": "The picker contains controllable attributes currently shared by every selected entity.",
+          "data": {"attribute": "Attribute"}
+        },
+        "reconfigure_behavior": {
+          "title": "Update layer behavior",
+          "description": "{attribute_name}: {value_help}",
           "data": {
-            "attribute": "Attribute", "value": "Value or template", "op": "Operation",
+            "value": "Value or template", "op": "Operation",
             "priority": "Priority", "opacity": "Opacity", "lifetime_mode": "Lifetime",
             "include_in_set_actions": "Include in set actions",
             "duration_seconds": "Duration", "condition_entity": "Condition entity"
-          }
+          },
+          "data_description": {"value": "{value_help}"}
         }
       },
       "error": {

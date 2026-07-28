@@ -12,7 +12,11 @@ package.__path__ = [
 ]
 sys.modules.setdefault(package.__name__, package)
 
-from custom_components.overlay_scenes.pickers import common_entity_attributes
+from custom_components.overlay_scenes.pickers import (
+    attribute_value_help,
+    common_entity_attributes,
+    operations_for_attribute,
+)
 from custom_components.overlay_scenes.action_targets import layer_reference_from_entity
 
 
@@ -66,6 +70,34 @@ class PickerContractTests(unittest.TestCase):
                 states.get, ["light.first", "media_player.room"]
             ),
             [],
+        )
+
+    def test_value_guidance_matches_the_selected_attribute(self) -> None:
+        self.assertEqual(
+            attribute_value_help("brightness"),
+            "Enter a percentage from 0 to 100, or a template returning that number.",
+        )
+        self.assertEqual(
+            attribute_value_help("rgb_color"),
+            "Enter an RGB list such as [255, 100, 20], or a template returning one.",
+        )
+        self.assertEqual(
+            attribute_value_help("state"),
+            "Enter true or false, or a template returning a boolean.",
+        )
+
+    def test_operation_choices_match_the_selected_attribute(self) -> None:
+        self.assertEqual(
+            operations_for_attribute("state"),
+            ("override", "or", "and", "nand", "nor", "xor", "xnor"),
+        )
+        self.assertEqual(
+            operations_for_attribute("brightness"),
+            ("override", "add", "clamp_min", "clamp_max", "average"),
+        )
+        self.assertEqual(
+            operations_for_attribute("rgb_color"),
+            ("override", "screen", "multiply"),
         )
 
     def test_service_actions_expose_only_picker_fields(self) -> None:
