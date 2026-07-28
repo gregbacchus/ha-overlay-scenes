@@ -5,20 +5,10 @@ activate_set:
     config_entry_id:
       name: Overlay Set
       description: Select the Overlay Set to activate.
-      required: false
+      required: true
       selector:
         config_entry:
           integration: overlay_scenes
-    legacy_ids:
-      name: Legacy YAML identifiers
-      collapsed: true
-      fields:
-        overlay_set_id:
-          name: Overlay Set ID
-          description: Qualified ID retained for existing automations. Prefer Overlay Set above.
-          required: false
-          selector:
-            text:
 
 deactivate_set:
   name: Deactivate Overlay Set
@@ -27,29 +17,19 @@ deactivate_set:
     config_entry_id:
       name: Overlay Set
       description: Select the Overlay Set to deactivate.
-      required: false
+      required: true
       selector:
         config_entry:
           integration: overlay_scenes
-    legacy_ids:
-      name: Legacy YAML identifiers
-      collapsed: true
-      fields:
-        overlay_set_id:
-          name: Overlay Set ID
-          description: Qualified ID retained for existing automations. Prefer Overlay Set above.
-          required: false
-          selector:
-            text:
 
 activate_layer:
   name: Activate layer
-  description: Activate or refresh one configured layer using its Overlay Set-qualified reference.
+  description: Activate or refresh one configured layer.
   fields:
     layer_entity_id:
       name: Layer
       description: Select the layer status entity to activate.
-      required: false
+      required: true
       selector:
         entity:
           filter:
@@ -61,38 +41,18 @@ activate_layer:
       required: false
       selector:
         duration:
-    legacy_ids:
-      name: Legacy YAML identifiers
-      collapsed: true
-      fields:
-        layer_id:
-          name: Layer reference
-          description: Qualified set.layer ID retained for existing automations. Prefer Layer above.
-          required: false
-          selector:
-            text:
 
 deactivate_layer:
   name: Deactivate layer
-  description: Deactivate one configured layer using its Overlay Set-qualified reference.
+  description: Deactivate one configured layer.
   fields:
     layer_entity_id:
       name: Layer
       description: Select the layer status entity to deactivate.
-      required: false
+      required: true
       selector:
         entity:
           filter:
             integration: overlay_scenes
             domain: sensor
             device_class: enum
-    legacy_ids:
-      name: Legacy YAML identifiers
-      collapsed: true
-      fields:
-        layer_id:
-          name: Layer reference
-          description: Qualified set.layer ID retained for existing automations. Prefer Layer above.
-          required: false
-          selector:
-            text:

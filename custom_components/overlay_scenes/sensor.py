@@ -13,6 +13,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from .const import DATA_RUNTIMES, DOMAIN
 from .ha_presentation import target_display_name
 from .models import Channel, Layer
+from .presentation import layer_status_name_placeholders
 from .runtime import OverlayRuntime
 
 
@@ -105,9 +106,9 @@ class LayerStatusSensor(RuntimeSensor):
         super().__init__(runtime)
         self.layer = layer
         self._attr_translation_key = "layer_status"
-        self._attr_translation_placeholders = {
-            "layer_name": layer.id.replace("_", " ").capitalize()
-        }
+        self._attr_translation_placeholders = layer_status_name_placeholders(
+            runtime.set_name, layer.id
+        )
         self._attr_unique_id = f"{runtime.entry_id}_{layer.id}_status"
 
     @property

@@ -135,10 +135,9 @@ role, and target entities. The second presents an attribute picker containing
 `state` plus only attributes currently shared by every selected entity, followed
 by the layer behavior fields.
 
-Automation actions prefer native pickers: Overlay Set actions select a config
-entry and layer actions select a layer-status entity. The original
-`overlay_set_id` and qualified `layer_id` inputs remain supported for existing
-YAML automations.
+Automation actions use native pickers: Overlay Set actions select a config
+entry and layer actions select a layer-status entity. Layer-status entity names
+include the Overlay Set name so similarly named layers remain distinguishable.
 
 ## Eviction scope — decided: same channel only
 

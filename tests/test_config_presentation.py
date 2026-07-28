@@ -15,6 +15,7 @@ sys.modules.setdefault(package.__name__, package)
 
 from custom_components.overlay_scenes.presentation import (
     display_name,
+    layer_status_name_placeholders,
     layer_title,
     overlay_set_title,
     renamed_layer_targets,
@@ -28,6 +29,15 @@ class ConfigPresentationTests(unittest.TestCase):
         self.assertEqual(
             overlay_set_title("Hallway Lights", "hallway_lights"),
             "Hallway Lights · ID: hallway_lights",
+        )
+
+    def test_layer_status_name_includes_owning_overlay_set(self) -> None:
+        self.assertEqual(
+            layer_status_name_placeholders("Hallway Lights", "night_dimness"),
+            {
+                "overlay_set_name": "Hallway Lights",
+                "layer_name": "Night dimness",
+            },
         )
 
     def test_layer_title_includes_full_id_attribute_and_entities(self) -> None:
@@ -101,7 +111,7 @@ class ConfigPresentationTests(unittest.TestCase):
                 )
                 self.assertEqual(
                     translations["entity"]["sensor"]["layer_status"]["name"],
-                    "{layer_name} status",
+                    "{overlay_set_name} · {layer_name}",
                 )
 
     def test_display_name_prefers_effective_state_name_then_registry_then_id(self) -> None:

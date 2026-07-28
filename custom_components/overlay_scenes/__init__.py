@@ -20,7 +20,7 @@ from homeassistant.helpers.event import (
     async_track_entity_registry_updated_event,
 )
 
-from .action_targets import exactly_one_reference, layer_reference_from_entity
+from .action_targets import layer_reference_from_entity
 from .const import (
     DATA_RUNTIMES,
     DOMAIN,
@@ -39,22 +39,15 @@ from .runtime import OverlayRuntime
 
 ACTIVATE_SCHEMA = vol.Schema(
     {
-        vol.Optional("layer_entity_id"): cv.entity_id,
-        vol.Optional("layer_id"): cv.string,
+        vol.Required("layer_entity_id"): cv.entity_id,
         vol.Optional("duration_override"): cv.time_period,
     }
 )
 DEACTIVATE_SCHEMA = vol.Schema(
-    {
-        vol.Optional("layer_entity_id"): cv.entity_id,
-        vol.Optional("layer_id"): cv.string,
-    }
+    {vol.Required("layer_entity_id"): cv.entity_id}
 )
 SET_ACTION_SCHEMA = vol.Schema(
-    {
-        vol.Optional("config_entry_id"): cv.string,
-        vol.Optional("overlay_set_id"): cv.string,
-    }
+    {vol.Required("config_entry_id"): cv.string}
 )
 
 
@@ -82,30 +75,14 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
         return matches[0]
 
     def set_runtime_from_call(call: ServiceCall) -> OverlayRuntime:
-        reference, from_picker = exactly_one_reference(
-            call.data.get("config_entry_id"),
-            call.data.get("overlay_set_id"),
-            "Overlay Set",
-            "Overlay Set ID",
-        )
-        if from_picker:
-            runtime = domain_data[DATA_RUNTIMES].get(reference)
-            if runtime is None:
-                raise ValueError("Selected Overlay Set is not loaded")
-            return runtime
-        return find_set_runtime(reference)
+        runtime = domain_data[DATA_RUNTIMES].get(call.data["config_entry_id"])
+        if runtime is None:
+            raise ValueError("Selected Overlay Set is not loaded")
+        return runtime
 
     def layer_reference_from_call(call: ServiceCall) -> str:
-        reference, from_picker = exactly_one_reference(
-            call.data.get("layer_entity_id"),
-            call.data.get("layer_id"),
-            "Layer",
-            "Layer reference",
-        )
-        return (
-            layer_reference_from_entity(hass.states.get, reference)
-            if from_picker
-            else reference
+        return layer_reference_from_entity(
+            hass.states.get, call.data["layer_entity_id"]
         )
 
     async def activate(call: ServiceCall) -> None:
@@ -165,6 +142,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         entry.entry_id,
         layers,
         set_id=set_id,
+        set_name=set_name,
     )
     hass.data[DOMAIN][DATA_RUNTIMES][entry.entry_id] = runtime
     await runtime.async_start()

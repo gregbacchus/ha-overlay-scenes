@@ -13,10 +13,7 @@ package.__path__ = [
 sys.modules.setdefault(package.__name__, package)
 
 from custom_components.overlay_scenes.pickers import common_entity_attributes
-from custom_components.overlay_scenes.action_targets import (
-    exactly_one_reference,
-    layer_reference_from_entity,
-)
+from custom_components.overlay_scenes.action_targets import layer_reference_from_entity
 
 
 INTEGRATION_DIR = (
@@ -71,7 +68,7 @@ class PickerContractTests(unittest.TestCase):
             [],
         )
 
-    def test_service_actions_expose_picker_fields_and_keep_legacy_ids(self) -> None:
+    def test_service_actions_expose_only_picker_fields(self) -> None:
         services = (INTEGRATION_DIR / "services.yaml").read_text()
 
         self.assertIn("config_entry_id:", services)
@@ -80,23 +77,8 @@ class PickerContractTests(unittest.TestCase):
         self.assertIn("integration: overlay_scenes", services)
         self.assertIn("filter:", services)
         self.assertIn("device_class: enum", services)
-        self.assertIn("collapsed: true", services)
-        self.assertIn("overlay_set_id:", services)
-        self.assertIn("layer_id:", services)
-
-    def test_picker_and_legacy_action_inputs_are_mutually_exclusive(self) -> None:
-        self.assertEqual(
-            exactly_one_reference("entry-1", None, "Overlay Set", "Overlay Set ID"),
-            ("entry-1", True),
-        )
-        self.assertEqual(
-            exactly_one_reference(None, "hallway", "Overlay Set", "Overlay Set ID"),
-            ("hallway", False),
-        )
-        with self.assertRaisesRegex(ValueError, "exactly one"):
-            exactly_one_reference(
-                "entry-1", "hallway", "Overlay Set", "Overlay Set ID"
-            )
+        self.assertNotIn("    overlay_set_id:", services)
+        self.assertNotIn("    layer_id:", services)
 
     def test_layer_picker_resolves_only_a_layer_status_entity(self) -> None:
         states = {

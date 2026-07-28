@@ -30,10 +30,12 @@ class OverlayRuntime:
         entry_id: str,
         layers: dict[str, Layer],
         set_id: str | None = None,
+        set_name: str | None = None,
     ) -> None:
         self.hass = hass
         self.entry_id = entry_id
         self.set_id = set_id or entry_id
+        self.set_name = set_name or self.set_id
         self.layers = layers
         self.registry = ChannelRegistry(self._registry_changed)
         self.store = LayerStore(hass)

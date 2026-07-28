@@ -168,7 +168,7 @@ triggers:
 actions:
   - action: overlay_scenes.activate_set
     data:
-      overlay_set_id: hallway_boost
+      config_entry_id: 0123456789abcdef0123456789abcdef
 mode: restart
 ```
 
@@ -344,7 +344,7 @@ Set actions are the recommended way to control a complete scene.
 ```yaml
 - action: overlay_scenes.activate_set
   data:
-    overlay_set_id: hallway_evening
+    config_entry_id: 0123456789abcdef0123456789abcdef
 ```
 
 Activation applies every layer that:
@@ -360,7 +360,7 @@ active until the set or layer is deactivated or a newer source evicts them.
 ```yaml
 - action: overlay_scenes.deactivate_set
   data:
-    overlay_set_id: hallway_evening
+    config_entry_id: 0123456789abcdef0123456789abcdef
 ```
 
 Deactivation removes every opted-in non-condition layer from all channels it
@@ -383,12 +383,12 @@ actions:
         sequence:
           - action: overlay_scenes.activate_set
             data:
-              overlay_set_id: hallway_evening
+              config_entry_id: 0123456789abcdef0123456789abcdef
       - conditions: "{{ trigger.id == 'deactivate' }}"
         sequence:
           - action: overlay_scenes.deactivate_set
             data:
-              overlay_set_id: hallway_evening
+              config_entry_id: 0123456789abcdef0123456789abcdef
 mode: restart
 ```
 
@@ -520,7 +520,7 @@ An automation may override the configured duration for one activation:
 ```yaml
 - action: overlay_scenes.activate_layer
   data:
-    layer_id: hallway_boost.front_door_boost_brightness
+    layer_entity_id: sensor.hallway_boost_front_door_boost_brightness_status
     duration_override: "00:02:30"
 ```
 
@@ -610,7 +610,7 @@ triggers:
 actions:
   - action: overlay_scenes.activate_layer
     data:
-      layer_id: whole_house_audio.audio_night_volume_max
+      layer_entity_id: sensor.whole_house_audio_audio_night_volume_max_status
 mode: restart
 ```
 
@@ -626,16 +626,17 @@ sources, template refreshes, and other cases where changing the entire set would
 be incorrect.
 
 The automation editor provides an **Overlay Set** picker for set actions and a
-**Layer** entity picker for layer actions. The ID-based YAML shown below remains
-supported so existing automations do not need to be rewritten. In the Layer
-picker, choose the diagnostic sensor whose name ends in `status`.
+**Layer** entity picker for layer actions. Layer choices include their Overlay
+Set name, making the owning set visible in the picker. The
+IDs in the YAML examples below are the values saved by those pickers; use the
+editor rather than entering them manually.
 
 ### Activate a layer
 
 ```yaml
 - action: overlay_scenes.activate_layer
   data:
-    layer_id: hallway_automation.hallway_sunset_state
+    layer_entity_id: sensor.hallway_automation_hallway_sunset_state_status
 ```
 
 For duration layers, activating again resets the timer.
@@ -645,7 +646,7 @@ For duration layers, activating again resets the timer.
 ```yaml
 - action: overlay_scenes.activate_layer
   data:
-    layer_id: hallway_automation.hallway_front_door_boost
+    layer_entity_id: sensor.hallway_automation_hallway_front_door_boost_status
     duration_override: "00:05:00"
 ```
 
@@ -654,7 +655,7 @@ For duration layers, activating again resets the timer.
 ```yaml
 - action: overlay_scenes.deactivate_layer
   data:
-    layer_id: hallway_automation.hallway_sunset_state
+    layer_entity_id: sensor.hallway_automation_hallway_sunset_state_status
 ```
 
 Deactivation removes that layer from every channel it still occupies.
@@ -711,10 +712,10 @@ triggers:
 actions:
   - action: overlay_scenes.activate_layer
     data:
-      layer_id: hallway_automation.hallway_sunset_state
+      layer_entity_id: sensor.hallway_automation_hallway_sunset_state_status
   - action: overlay_scenes.activate_layer
     data:
-      layer_id: hallway_automation.hallway_sunset_brightness
+      layer_entity_id: sensor.hallway_automation_hallway_sunset_brightness_status
 mode: single
 ```
 
@@ -726,10 +727,10 @@ triggers:
 actions:
   - action: overlay_scenes.deactivate_layer
     data:
-      layer_id: hallway_automation.hallway_sunset_state
+      layer_entity_id: sensor.hallway_automation_hallway_sunset_state_status
   - action: overlay_scenes.deactivate_layer
     data:
-      layer_id: hallway_automation.hallway_sunset_brightness
+      layer_entity_id: sensor.hallway_automation_hallway_sunset_brightness_status
 mode: single
 ```
 
@@ -806,7 +807,7 @@ conditions:
 actions:
   - action: overlay_scenes.activate_layer
     data:
-      layer_id: hallway_automation.hallway_front_door_boost
+      layer_entity_id: sensor.hallway_automation_hallway_front_door_boost_status
 mode: restart
 ```
 
@@ -864,10 +865,10 @@ conditions:
 actions:
   - action: overlay_scenes.activate_layer
     data:
-      layer_id: hallway_automation.hallway_motion_state
+      layer_entity_id: sensor.hallway_automation_hallway_motion_state_status
   - action: overlay_scenes.activate_layer
     data:
-      layer_id: hallway_automation.hallway_motion_floor
+      layer_entity_id: sensor.hallway_automation_hallway_motion_floor_status
 mode: restart
 ```
 
@@ -907,18 +908,18 @@ actions:
         sequence:
           - action: overlay_scenes.activate_layer
             data:
-              layer_id: hallway_automation.hallway_switch_on_state
+              layer_entity_id: sensor.hallway_automation_hallway_switch_on_state_status
           - action: overlay_scenes.activate_layer
             data:
-              layer_id: hallway_automation.hallway_switch_on_brightness
+              layer_entity_id: sensor.hallway_automation_hallway_switch_on_brightness_status
       - conditions: "{{ trigger.id == 'off' }}"
         sequence:
           - action: overlay_scenes.activate_layer
             data:
-              layer_id: hallway_automation.hallway_switch_off_state
+              layer_entity_id: sensor.hallway_automation_hallway_switch_off_state_status
           - action: overlay_scenes.activate_layer
             data:
-              layer_id: hallway_automation.hallway_switch_off_brightness
+              layer_entity_id: sensor.hallway_automation_hallway_switch_off_brightness_status
 mode: restart
 ```
 
@@ -976,7 +977,7 @@ To force speakers toward 10% during an announcement:
 ```yaml
 - action: overlay_scenes.activate_layer
   data:
-    layer_id: whole_house_audio.audio_announcement_duck
+    layer_entity_id: sensor.whole_house_audio_audio_announcement_duck_status
 ```
 
 ### Warm evening color tint

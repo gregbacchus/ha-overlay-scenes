@@ -7,11 +7,11 @@ README = (Path(__file__).parents[1] / "README.md").read_text()
 NORMALIZED_README = " ".join(README.split())
 
 
-def test_readme_uses_qualified_layer_references() -> None:
-    """Document the public layer-addressing contract."""
-    assert "<overlay_set_id>.<layer_id>" in README
-    assert "hallway_automation.hallway_front_door_boost" in README
-    assert "hallway_automation.hallway_motion_boost" not in README
+def test_readme_uses_picker_backed_action_targets() -> None:
+    """Document the picker-backed automation action contract."""
+    assert "config_entry_id:" in README
+    assert "layer_entity_id:" in README
+    assert "data:\n    layer_id:" not in README
 
 
 def test_readme_uses_one_duration_format() -> None:

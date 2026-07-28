@@ -11,6 +11,16 @@ def overlay_set_title(name: str, set_id: str) -> str:
     return f"{name} · ID: {set_id}"
 
 
+def layer_status_name_placeholders(
+    overlay_set_name: str, layer_id: str
+) -> dict[str, str]:
+    """Return contextual placeholders for a layer-status entity name."""
+    return {
+        "overlay_set_name": overlay_set_name,
+        "layer_name": layer_id.replace("_", " ").capitalize(),
+    }
+
+
 def layer_title(
     overlay_set_id: str,
     data: Mapping[str, Any],

@@ -181,20 +181,17 @@ Use HA's `homeassistant.helpers.storage.Store`. Persist: active layer instances 
 ```yaml
 activate_layer:
   fields:
-    layer_entity_id: {required: false, selector: {entity}}
-    layer_id: {required: false, selector: {text}}
+    layer_entity_id: {required: true, selector: {entity}}
     duration_override: {required: false, selector: {duration}}
 
 deactivate_layer:
   fields:
-    layer_entity_id: {required: false, selector: {entity}}
-    layer_id: {required: false, selector: {text}}
+    layer_entity_id: {required: true, selector: {entity}}
 ```
 
-Exactly one picker-backed field or legacy ID field is required. Set actions use
-the same rule with `config_entry_id` preferred over the retained
-`overlay_set_id`. Picker values are resolved to the existing public qualified
-IDs; the service names and legacy YAML contracts remain stable.
+Set actions require a picker-backed `config_entry_id`. Layer actions require a
+layer-status `layer_entity_id`, which is resolved internally to the layer's
+qualified ID. Layer-status display names include their Overlay Set name.
 
 ## Config flow (`config_flow.py`)
 
